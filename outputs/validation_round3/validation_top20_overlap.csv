@@ -1,0 +1,5 @@
+model,overlap_count,overlap_rate
+model_after_competition,2,0.1
+model_before_competition,8,0.4
+floating_population_baseline,5,0.25
+store_count_baseline,11,0.55
