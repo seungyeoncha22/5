@@ -117,7 +117,19 @@ def build_dong(r, steps_per_week):
     }
     bp = r.get("budget_plan") or {}
     hv = r.get("hub_vs_broad") or {}
+    asm = r.get("assumptions") or {}
+    rev = code_files["revision"] or {}
+    detail = {
+        "weekly": r.get("weekly_visitors"), "repromo": r.get("repromo"),
+        "assumptions": asm, "scenarios": r.get("scenarios") or [], "budget_plan": bp,
+        "hub_vs_broad": hv, "hubs": r.get("hubs") or [], "channel_share": r.get("channel_share") or {},
+        "group_awareness": r.get("group_awareness") or {}, "prescriptions": r.get("prescriptions") or [],
+        "diagnosis": r.get("diagnosis"), "revision_changes": rev.get("changes") or [],
+        "competition": r.get("competition_factor"), "demand": r.get("visitors_demand"),
+        "visitors": r.get("visitors"), "population": r.get("population_in_radius"),
+    }
     return {
+        "detail": detail,
         "code": code, "dong": r["dong"], "center": center, "dots": dots,
         "monthly": r.get("monthly_customers"), "breakeven": r.get("breakeven_week"),
         "weekly": r.get("weekly_visitors"), "range": r.get("visitors_range"),
@@ -137,7 +149,12 @@ results = load_results()
 weights = read_json(ROOT / "config" / "weights.json", {})
 spw = weights.get("steps_per_week", 2)
 scenario = read_json(DATA / "scenario.json", {})
-validation = read_json(DATA / "validation_log.json", [])
+validation = []
+for cand in [DATA / "validation_log.json", ROOT / "validation_log.json", ROOT / "outputs" / "validation_log.json",
+             ROOT / "data" / "validation_log.json"]:
+    validation = read_json(cand, [])
+    if validation:
+        break
 val = validation[-1] if isinstance(validation, list) and validation else None
 
 if not results:
@@ -166,10 +183,11 @@ dongs.sort(key=lambda d: -(d["monthly"] or 0))
 payload = {
     "view": view, "idea": idea, "dongs": dongs,
     "validation": {"rank_corr": val.get("rank_corr"), "target": val.get("target"), "round": val.get("round")} if val else None,
+    "validation_all": validation if isinstance(validation, list) else [],
     "people_total": len(load_people()), "dong_total": 426,
 }
 html = VIEW.read_text(encoding="utf-8").replace("__DATA__", json.dumps(payload, ensure_ascii=False))
-components.html(html, height=1500 if view == "home" else 1900, scrolling=False)
+components.html(html, height=1500 if view == "home" else 2300, scrolling=False)
 
 if st.query_params.get("debug") == "1":
     with st.expander("개발용 정보"):
