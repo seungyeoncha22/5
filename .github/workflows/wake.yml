@@ -1,4 +1,4 @@
-name: Wake Streamlit apps
+﻿name: Wake Streamlit apps
 
 on:
   schedule:
@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 15
     env:
       # 깨울 앱 주소, 쉼표로 구분 (v3 주소가 생기면 뒤에 추가)
-      STREAMLIT_URLS: "https://localsim-team05.streamlit.app/"
+      STREAMLIT_URLS: "https://localsim-team05.streamlit.app/,https://실제v3주소.streamlit.app/"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
