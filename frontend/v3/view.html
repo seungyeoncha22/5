@@ -39,6 +39,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-o
 .box { border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
 #map { height: 520px; border: 1px solid #E3DED3; background: #F3EFE7; }
+/* 실제 지도는 살리되 색을 빼서 노른자가 잘 보이게 */
+#map .leaflet-tile-pane { filter: grayscale(1) contrast(0.85) brightness(1.08); }
 .legend { display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap; }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .yolk { display: inline-block; border-radius: 999px; box-sizing: border-box; }
@@ -161,9 +163,8 @@ function renderResult(code) {
         <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">
           <span class="label"><span class="dot"></span>Map · <span id="wk">${peak}</span>주 차 · 소식 들은 시민 <span id="cnt"></span>명</span>
           <span class="legend">
-            <span><i class="yolk" style="width:6px;height:6px;background:var(--gray)"></i>아직 모름</span>
-            <span><i class="yolk" style="width:12px;height:12px;background:var(--yolk);border:2.5px solid #fff;box-shadow:0 0 0 1px #DCCBA6"></i>소식 들음</span>
-            <span><i class="yolk" style="width:12px;height:12px;background:var(--yolk-deep);border:2.5px solid #fff;box-shadow:0 0 0 1px #B98A3E"></i>이번 주에 들음</span>
+            <span><i class="yolk" style="width:8px;height:8px;background:var(--yolk);opacity:.7"></i>소식 들음</span>
+            <span><i class="yolk" style="width:14px;height:14px;background:var(--yolk-deep);border:2px solid #fff;box-shadow:0 0 0 1px #B98A3E"></i>이번 주에 새로 들음</span>
           </span>
         </div>
         <div id="map" role="img" aria-label="${esc(x.dong)} 주변 가상 시민 중 소식을 들은 사람의 위치"></div>
@@ -204,9 +205,9 @@ function drawMap(x, week) {
   if (timer) { clearInterval(timer); timer = null; }
   if (map) { map.remove(); map = null; }
   if (typeof L === 'undefined') { document.getElementById('map').textContent = '지도를 불러오지 못했어요.'; return; }
-  map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView(x.center, 14);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    { attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 18 }).addTo(map);
+  map = L.map('map', { zoomControl: true, scrollWheelZoom: false, preferCanvas: true }).setView(x.center, 15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
   L.circleMarker(x.center, { radius: 12, color: '#111', weight: 6, fillColor: '#F5B301', fillOpacity: 1 })
     .addTo(map).bindTooltip('내 가게', { permanent: true, direction: 'bottom', offset: [0, 10] });
   layer = L.layerGroup().addTo(map);
@@ -216,11 +217,12 @@ function drawMap(x, week) {
     let cnt = 0;
     for (const [lat, lng, hw] of x.dots) {
       const heard = hw >= 0 && hw < w;
-      if (heard) cnt++;
-      const now = heard && hw === w - 1;
-      L.circleMarker([lat, lng], heard
-        ? { radius: now ? 6 : 5, color: '#FFFFFF', weight: 2, fillColor: now ? '#D98200' : '#F5B301', fillOpacity: 1 }
-        : { radius: 2, stroke: false, fillColor: '#CFC8BB', fillOpacity: 0.9 }).addTo(layer);
+      if (!heard) continue;            // 아직 모르는 사람은 그리지 않음 (화면이 빽빽해지지 않게)
+      cnt++;
+      const now = hw === w - 1;        // 이번 주에 새로 들은 사람만 크고 진하게
+      L.circleMarker([lat, lng], now
+        ? { radius: 7, color: '#FFFFFF', weight: 2, fillColor: '#D98200', fillOpacity: 1 }
+        : { radius: 3.5, stroke: false, fillColor: '#F5B301', fillOpacity: 0.7 }).addTo(layer);
     }
     document.getElementById('wk').textContent = w;
     document.getElementById('wk2').textContent = w;
