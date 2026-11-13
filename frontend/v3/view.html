@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root { --bg:#FAFAF7; --ink:#111111; --sub:#595959; --line:#111111; --yolk:#F5B301; --yolk-deep:#D98200; --gray:#CFC8BB; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard', sans-serif; }
+a { color: var(--ink); cursor: pointer; transition: color 200ms ease; }
+a:hover { color: #7A5200; }
+button { cursor: pointer; font-family: inherit; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 1360px; margin: 0 auto; padding: 32px 40px 48px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: #E9A400; margin-right: 8px; }
+.label { display: flex; align-items: center; font-size: 14px; font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.04em; font-weight: 700; }
+.muted { color: var(--sub); }
+/* 첫 화면 */
+.hero { display: flex; flex-wrap: wrap; gap: 48px; align-items: stretch; padding-bottom: 56px; }
+.hero h1 { margin: 0; font-size: 72px; line-height: 1.1; font-weight: 900; letter-spacing: -0.03em; }
+.posters { display: flex; gap: 16px; overflow-x: auto; }
+.poster { flex: 0 0 320px; height: 400px; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; }
+.poster .big { font-size: 88px; line-height: .9; }
+.poster .cap { display: flex; justify-content: space-between; font-size: 14px; border-top: 1.5px solid currentColor; padding-top: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 24px; }
+.cell { border-top: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); padding: 24px 4px; min-height: 260px;
+        display: flex; flex-direction: column; justify-content: space-between; text-decoration: none; }
+.cell h3 { margin: 12px 0 0; font-size: 28px; line-height: 1.35; font-weight: 700; }
+/* 결과 화면 */
+.headline { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 32px; }
+.headline h1 { margin: 12px 0 0; font-size: 128px; line-height: .95; font-weight: 900; letter-spacing: -0.05em; }
+.tabs { display: flex; gap: 32px; border-bottom: 1.5px solid var(--line); margin: 32px 0 0; }
+.tabs button { background: none; border: none; padding: 12px 0; font-size: 16px; color: var(--sub); border-bottom: 3px solid transparent; margin-bottom: -1.5px; }
+.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--ink); }
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 1.5px solid var(--line); margin-top: 32px; }
+.box { border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
+#map { height: 520px; border: 1px solid #E3DED3; background: #F3EFE7; }
+.legend { display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.yolk { display: inline-block; border-radius: 999px; box-sizing: border-box; }
+.timeline { display: flex; align-items: center; gap: 16px; }
+.timeline input { flex: 1; accent-color: var(--ink); }
+.play { width: 40px; height: 40px; border: 1.5px solid var(--ink); background: #FFFFFF; font-size: 14px; }
+.cmp a { display: block; padding: 16px 24px; text-decoration: none; border-bottom: 1px solid #E0E0E0; }
+.cmp a.on { background: var(--ink); color: #FFFFFF; }
+.cmp a.on .muted { color: #CFCFCF; }
+.bars { display: grid; grid-template-columns: 80px 1fr 48px; row-gap: 10px; column-gap: 12px; align-items: center; font-size: 14px; }
+.bars i { display: block; height: 10px; background: var(--yolk); }
+.foot { margin-top: 24px; font-size: 14px; color: var(--sub); }
+@media (max-width: 900px) {
+  .grid4, .board { grid-template-columns: minmax(0, 1fr); }
+  .span2, .span3 { grid-column: auto; }
+  .hero h1 { font-size: 48px; } .headline h1 { font-size: 72px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<script>
+const DATA = __DATA__;
+const fmt = n => (n === null || n === undefined) ? '-' : Number(n).toLocaleString('ko-KR');
+const be = w => w ? `손익분기 ${w}주 차` : '12주 안 손익분기 전';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CH = { '동네': '동네 이웃', '지나가다': '지나가다', '검색': '검색', '당근': '당근', '인스타': '인스타', '맘카페': '맘카페', '에타': '에타' };
+const app = document.getElementById('app');
+
+function promoText(p) {
+  if (!p || !p.split) return null;
+  const parts = Object.entries(p.split).map(([c, b]) => `${c} ${Math.round(b / 10000)}만 원`);
+  if (p.discount) parts.push('오픈 할인');
+  return parts.join(' + ');
+}
+
+function curveSVG(weekly) {
+  const W = 600, H = 200, max = Math.max(...weekly) || 1, n = weekly.length;
+  const pts = weekly.map((v, i) => [20 + i * (W - 40) / (n - 1), H - 24 - v / max * (H - 48)]);
+  const peak = weekly.indexOf(Math.max(...weekly));
+  const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const lab = (i, t) => `<text x="${pts[i][0]}" y="${pts[i][1] - 10}" font-size="13" text-anchor="middle" fill="#111">${t}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="12주 손님 곡선, ${peak + 1}주 차가 가장 많음">
+    <line x1="0" y1="${H - 16}" x2="${W}" y2="${H - 16}" stroke="#111" stroke-width="1.5"/>
+    <path d="${path}" fill="none" stroke="#F5B301" stroke-width="5" stroke-linejoin="round"/>
+    ${[0, peak, n - 1].map(i => `<circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="5" fill="#111"/>`).join('')}
+    ${lab(0, 'W1 · ' + fmt(weekly[0]))}${lab(peak, 'W' + (peak + 1) + ' · ' + fmt(weekly[peak]))}${peak !== n - 1 ? lab(n - 1, 'W' + n + ' · ' + fmt(weekly[n - 1])) : ''}
+  </svg>`;
+}
+
+/* ---------- 첫 화면 ---------- */
+function renderHome() {
+  const d = DATA.dongs;
+  const styles = [
+    { bg: '#F5B301', fg: '#111111', border: 'none' },
+    { bg: '#111111', fg: '#FFFFFF', border: 'none' },
+    { bg: '#FAFAF7', fg: '#111111', border: '1.5px solid #111111' },
+  ];
+  const posters = d.map((x, i) => {
+    const s = styles[i % 3];
+    return `<figure class="poster" style="margin:0;background:${s.bg};color:${s.fg};border:${s.border}">
+      <span style="font-size:16px;font-weight:700">${esc(x.dong)}</span>
+      <div><div class="num big">${fmt(x.monthly)}</div><div style="font-size:16px;margin-top:6px">3달째 한 달 손님</div></div>
+      <figcaption class="cap"><span>${be(x.breakeven)}</span><span>0${i + 1}</span></figcaption></figure>`;
+  }).join('');
+  const top = d[0] || {};
+  const cells = d.map(x => `<a class="cell" href="#" data-go="${x.code}">
+      <span><span class="label"><span class="dot"></span>Cafe</span><h3>${esc(x.dong)}<br>${esc(DATA.idea).slice(0, 14)}</h3></span>
+      <span style="font-size:16px">월 ${fmt(x.monthly)}명 · ${be(x.breakeven)}</span></a>`).join('');
+  const extra = [];
+  if (top.promo && promoText(top.promo)) extra.push(['Promotion · ' + top.dong, promoText(top.promo), `12주 +${fmt(top.promo.gain)}명 · ${top.promo.payback ? top.promo.payback + '주 차 회수' : '12주 안 회수 전'}`]);
+  if (top.hub && top.hub.reach_hub) extra.push(['Hub · ' + top.dong, `입소문 허브 1명<br>평균 ${top.hub.reach_hub}명에게 전파`, `보통 사람의 ${top.hub.ratio}배`]);
+  if (top.calib && top.calib.reduction !== null) extra.push(['Calibration', '오픈 후 4주 실제 손님으로<br>남은 예측 보정', `뒤 8주 오차 ${Math.round(top.calib.reduction * 100)}% 감소`]);
+  const extraCells = extra.map(([l, t, b]) => `<div class="cell" style="border-top:none"><span><span class="label"><span class="dot" style="background:#111"></span>${esc(l)}</span><h3>${t}</h3></span><span style="font-size:16px">${esc(b)}</span></div>`).join('');
+
+  app.innerHTML = `
+    <section class="hero">
+      <div style="flex:999 1 480px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+        <div><span class="label"><span class="dot"></span>Location · Word of mouth</span>
+          <h1 style="margin-top:14px">노른자<br>동네별 입소문·방문 예측</h1></div>
+        <div style="font-size:18px;line-height:1.6">서울 ${DATA.dong_total}개 행정동 · 가상 시민 ${fmt(DATA.people_total)}명<br>2025년 서울시 상권 데이터 기준</div>
+      </div>
+      <div style="flex:1 1 520px;min-width:0"><div class="posters" role="region" aria-label="예시 결과" tabindex="0">${posters}</div></div>
+    </section>
+    <section id="list" style="padding-top:40px">
+      <div class="grid4">
+        <div style="padding-bottom:32px;min-height:260px;display:flex;flex-direction:column;justify-content:space-between">
+          <h2 style="margin:0;font-size:40px;font-weight:900">최근 결과<sup class="muted" style="font-size:18px;font-weight:400;margin-left:6px">${d.length}</sup></h2>
+          <span class="muted" style="font-size:14px">위에서 가게와 동네를 고르고 결과 보기를 누르세요</span>
+        </div>
+        ${cells}${extraCells}
+      </div>
+    </section>
+    <p class="foot">가상 시민과 서울시 상권 데이터로 계산한 예측이며 실제 매출을 보장하지 않습니다.</p>`;
+  app.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); renderResult(a.dataset.go); }));
+}
+
+/* ---------- 결과 화면 ---------- */
+let map, layer, timer;
+function renderResult(code) {
+  const d = DATA.dongs;
+  const x = d.find(v => v.code === code) || d[0];
+  const rank = d.indexOf(x) + 1;
+  const peak = x.weekly.indexOf(Math.max(...x.weekly)) + 1;
+  const chans = Object.entries(x.channels).slice(0, 5);
+  const cmax = chans.length ? chans[0][1] : 1;
+
+  app.innerHTML = `
+    <section class="headline">
+      <div><span class="label"><span class="dot"></span>${rank}위 · 후보 ${d.length}곳 중</span><h1>${esc(x.dong)}</h1></div>
+      <div style="text-align:right"><div class="muted" style="font-size:16px">3달째 한 달 손님</div>
+        <div class="num" style="font-size:128px;line-height:.95">${fmt(x.monthly)}</div>
+        <div style="font-size:18px;margin-top:8px">${be(x.breakeven)} · 손님이 가장 많은 주 ${peak}주 차</div></div>
+    </section>
+    ${x.summary ? `<p style="font-size:18px;line-height:1.7;max-width:900px;margin:24px 0 0">${esc(x.summary)}</p>` : ''}
+    <div class="tabs" role="tablist" aria-label="후보 동네">${d.map(v => `<button role="tab" aria-selected="${v.code === x.code}" data-go="${v.code}">${esc(v.dong)}</button>`).join('')}</div>
+    <div class="board">
+      <section class="box span3" aria-label="소문 지도">
+        <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <span class="label"><span class="dot"></span>Map · <span id="wk">${peak}</span>주 차 · 소식 들은 시민 <span id="cnt"></span>명</span>
+          <span class="legend">
+            <span><i class="yolk" style="width:6px;height:6px;background:var(--gray)"></i>아직 모름</span>
+            <span><i class="yolk" style="width:12px;height:12px;background:var(--yolk);border:2.5px solid #fff;box-shadow:0 0 0 1px #DCCBA6"></i>소식 들음</span>
+            <span><i class="yolk" style="width:12px;height:12px;background:var(--yolk-deep);border:2.5px solid #fff;box-shadow:0 0 0 1px #B98A3E"></i>이번 주에 들음</span>
+          </span>
+        </div>
+        <div id="map" role="img" aria-label="${esc(x.dong)} 주변 가상 시민 중 소식을 들은 사람의 위치"></div>
+        <div class="timeline">
+          <button class="play" id="play" aria-label="재생">▶</button>
+          <label for="week" style="position:absolute;left:-9999px">주차</label>
+          <input id="week" type="range" min="1" max="${x.weekly.length}" value="${peak}">
+          <span class="num" style="font-size:14px;letter-spacing:0"><span id="wk2">${peak}</span> / ${x.weekly.length}</span>
+        </div>
+      </section>
+      <section class="box cmp" style="padding:0;gap:0" aria-label="동네 비교">
+        <span class="label" style="padding:24px 24px 8px"><span class="dot" style="background:#111"></span>Compare</span>
+        ${d.map(v => `<a href="#" data-go="${v.code}" class="${v.code === x.code ? 'on' : ''}"><div style="font-size:20px;font-weight:700">${esc(v.dong)}</div><div class="muted" style="font-size:14px">월 ${fmt(v.monthly)}명 · ${be(v.breakeven)}</div></a>`).join('')}
+      </section>
+      <section class="box span2"><span class="label"><span class="dot"></span>12 weeks</span>${curveSVG(x.weekly)}</section>
+      <section class="box" style="justify-content:space-between"><span class="label"><span class="dot" style="background:#111"></span>Promotion${x.promo ? ' · ' + fmt(Math.round(x.promo.budget / 10000)) + '만 원' : ''}</span>
+        ${x.promo && promoText(x.promo) ? `<span style="font-size:24px;font-weight:700;line-height:1.35">${esc(promoText(x.promo))}</span>
+        <span style="font-size:14px;line-height:1.6">12주 +${fmt(x.promo.gain)}명<br>광고비의 ${x.promo.roas}배 매출 · ${x.promo.payback ? x.promo.payback + '주 차 회수' : '12주 안 회수 전'}</span>` : '<span class="muted">홍보 계산 결과 없음</span>'}</section>
+      <section class="box" style="justify-content:space-between"><span class="label"><span class="dot" style="background:#111"></span>Fix</span>
+        ${x.revision ? `<span style="font-size:18px;font-weight:700;line-height:1.5">${esc(x.revision)}</span>`
+          : x.presc ? `<span style="font-size:20px;font-weight:700;line-height:1.4">${esc(x.presc.group)}</span><span style="font-size:14px;line-height:1.6">${esc(x.presc.offer)} · 추천 채널 ${esc(x.presc.channel)}</span>`
+          : '<span class="muted">특별히 막힌 집단이 없어요</span>'}</section>
+      <section class="box span2"><span class="label"><span class="dot"></span>Channel</span>
+        <div class="bars">${chans.map(([k, v]) => `<span>${esc(CH[k] || k)}</span><i style="width:${(v / cmax * 100).toFixed(0)}%"></i><span style="text-align:right">${Math.round(v * 100)}%</span>`).join('')}</div></section>
+      <section class="box" style="justify-content:space-between"><span class="label"><span class="dot" style="background:#111"></span>Hub</span>
+        ${x.hub && x.hub.reach_hub ? `<span class="num" style="font-size:56px;line-height:1">${x.hub.reach_hub}<span style="font-size:18px;margin-left:4px">명</span></span><span style="font-size:14px">허브 1명이 전한 평균 인원 · 보통 사람의 ${x.hub.ratio}배</span>` : '<span class="muted">-</span>'}</section>
+      <section class="box" style="justify-content:space-between"><span class="label"><span class="dot" style="background:#111"></span>Validation</span>
+        ${DATA.validation ? `<span class="num" style="font-size:56px;line-height:1">${DATA.validation.rank_corr >= 0 ? '+' : ''}${Number(DATA.validation.rank_corr).toFixed(2)}</span><span style="font-size:14px">${esc(DATA.validation.target)} · 실제 카페 매출 순위와의 상관</span>` : '<span class="muted">검증 기록 없음</span>'}</section>
+    </div>
+    <p class="foot"><a href="#" id="home">첫 화면으로</a> · 가상 시민과 서울시 상권 데이터로 계산한 예측이며 실제 매출을 보장하지 않습니다.</p>`;
+
+  app.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); renderResult(a.dataset.go); }));
+  document.getElementById('home').addEventListener('click', e => { e.preventDefault(); renderHome(); });
+  drawMap(x, peak);
+}
+
+function drawMap(x, week) {
+  if (timer) { clearInterval(timer); timer = null; }
+  if (map) { map.remove(); map = null; }
+  if (typeof L === 'undefined') { document.getElementById('map').textContent = '지도를 불러오지 못했어요.'; return; }
+  map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView(x.center, 14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    { attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 18 }).addTo(map);
+  L.circleMarker(x.center, { radius: 12, color: '#111', weight: 6, fillColor: '#F5B301', fillOpacity: 1 })
+    .addTo(map).bindTooltip('내 가게', { permanent: true, direction: 'bottom', offset: [0, 10] });
+  layer = L.layerGroup().addTo(map);
+  const slider = document.getElementById('week');
+  const show = w => {
+    layer.clearLayers();
+    let cnt = 0;
+    for (const [lat, lng, hw] of x.dots) {
+      const heard = hw >= 0 && hw < w;
+      if (heard) cnt++;
+      const now = heard && hw === w - 1;
+      L.circleMarker([lat, lng], heard
+        ? { radius: now ? 6 : 5, color: '#FFFFFF', weight: 2, fillColor: now ? '#D98200' : '#F5B301', fillOpacity: 1 }
+        : { radius: 2, stroke: false, fillColor: '#CFC8BB', fillOpacity: 0.9 }).addTo(layer);
+    }
+    document.getElementById('wk').textContent = w;
+    document.getElementById('wk2').textContent = w;
+    document.getElementById('cnt').textContent = fmt(cnt);
+  };
+  show(week);
+  slider.addEventListener('input', () => show(Number(slider.value)));
+  const play = document.getElementById('play');
+  play.addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; play.textContent = '▶'; play.setAttribute('aria-label', '재생'); return; }
+    let w = Number(slider.value) >= x.weekly.length ? 1 : Number(slider.value);
+    play.textContent = '❚❚'; play.setAttribute('aria-label', '정지');
+    timer = setInterval(() => {
+      slider.value = w; show(w); w++;
+      if (w > x.weekly.length) { clearInterval(timer); timer = null; play.textContent = '▶'; play.setAttribute('aria-label', '재생'); }
+    }, 700);
+  });
+}
+
+if (!DATA.dongs.length) app.innerHTML = '<p>결과가 없어요.</p>';
+else if (DATA.view === 'result') renderResult(DATA.dongs[0].code);
+else renderHome();
+</script>
+</body>
+</html>
