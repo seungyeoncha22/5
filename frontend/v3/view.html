@@ -87,7 +87,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-o
 .car-track { display: flex; gap: 16px; transition: transform 450ms cubic-bezier(.2,.7,.2,1); }
 .car.dragging .car-track { transition: none; }
 .car-slide { flex: 0 0 86%; height: 440px; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; }
-.car-slide .big { font-size: 112px; line-height: .9; }
+.car-slide .big { font-size: 112px; line-height: .9; font-variant-numeric: proportional-nums; }
+.car-slide .big .cm { margin: 0 -0.05em; }
 .car-slide .cap { display: flex; justify-content: space-between; font-size: 14px; border-top: 1.5px solid currentColor; padding-top: 12px; }
 .car-ctrl { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; }
 .car-dots { display: flex; gap: 8px; }
@@ -120,6 +121,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-o
 const DATA = __DATA__;
 const fmt = n => (n === null || n === undefined) ? '-' : Number(n).toLocaleString('ko-KR');
 const F = DATA.flags || {};
+// 큰 숫자: 쉼표 양옆 간격을 조금 줄임
+const bigNum = n => fmt(n).replace(/,/g, '<span class="cm">,</span>');
 const be = w => w ? `손익분기 ${w}주 차` : '12주 안 손익분기 전';
 const beR = w => F.breakeven ? be(w) : '월세를 넣으면 손익분기를 계산해요';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -176,7 +179,7 @@ function renderHero() {
     const st = styles[i % 3];
     return `<div class="car-slide" role="group" aria-roledescription="슬라이드" aria-label="${i + 1} / ${d.length}" style="background:${st.bg};color:${st.fg};border:${st.border}">
       <span style="font-size:18px;font-weight:700">${esc(x.dong)}</span>
-      <div><div class="num big">${fmt(x.monthly)}</div><div style="font-size:16px;margin-top:10px">3달째 한 달 손님</div></div>
+      <div><div class="num big">${bigNum(x.monthly)}</div><div style="font-size:16px;margin-top:10px">3달째 한 달 손님</div></div>
       <div class="cap"><span>${be(x.breakeven)}</span><span class="num" style="letter-spacing:0">${String(i + 1).padStart(2, '0')} / ${String(d.length).padStart(2, '0')}</span></div></div>`;
   }).join('');
   app.innerHTML = `
