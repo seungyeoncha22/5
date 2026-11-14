@@ -39,19 +39,27 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-o
 .clickable { cursor: pointer; transition: background-color 200ms ease; }
 .clickable:hover { background: #F2EFE8; }
 .more { margin-top: auto; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.detail { position: absolute; left: -1.5px; right: 0; z-index: 1000; background: #FAFAF7; border: 1.5px solid var(--line);
-          padding: 32px 40px 40px; max-height: 860px; overflow: auto; }
+.dim { position: absolute; inset: 0; z-index: 999; background: rgba(250, 250, 247, 0.72); }
+.dim[hidden] { display: none; }
+.detail { position: absolute; left: 24px; right: 24px; z-index: 1000; background: #FFFBEF; border: 2px solid var(--ink);
+          border-radius: 28px; box-shadow: 10px 10px 0 var(--yolk); padding: 40px 48px 48px; max-height: 860px; overflow: auto; }
 .detail[hidden] { display: none; }
-.detail h2 { margin: 8px 0 0; font-size: 32px; font-weight: 900; letter-spacing: -0.02em; }
-.detail h3 { margin: 32px 0 12px; font-size: 18px; font-weight: 700; padding-top: 16px; border-top: 1.5px solid var(--line); }
+.detail-yolk { float: right; width: 72px; height: 72px; margin: 52px 0 0 24px; border-radius: 999px; background: #FFFFFF;
+               border: 1.5px solid #E3D5B8; display: flex; align-items: center; justify-content: center; }
+.detail-yolk::after { content: ""; width: 34px; height: 34px; border-radius: 999px; background: var(--yolk); }
+.detail h2 { margin: 8px 0 0; font-size: 34px; font-weight: 900; letter-spacing: -0.02em; }
+.detail h3 { display: flex; align-items: center; gap: 10px; margin: 36px 0 12px; font-size: 18px; font-weight: 700; }
+.detail h3::before { content: ""; width: 14px; height: 14px; flex: none; border-radius: 999px; background: var(--yolk); border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px #D9C79E; }
 .detail p, .detail li { font-size: 16px; line-height: 1.7; margin: 0 0 8px; }
 .detail ul { margin: 0; padding-left: 20px; }
-.detail table { border-collapse: collapse; width: 100%; font-size: 14px; }
-.detail th, .detail td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #E0E0E0; vertical-align: top; }
-.detail th { font-weight: 600; color: var(--sub); }
+.detail table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; background: #FFFFFF; border: 1px solid #EADFCB; border-radius: 16px; overflow: hidden; }
+.detail th, .detail td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #F0E8D8; vertical-align: top; }
+.detail tr:last-child td { border-bottom: none; }
+.detail th { font-weight: 600; color: var(--sub); background: #FFF4D6; }
 .detail td.n, .detail th.n { text-align: right; font-variant-numeric: tabular-nums; }
-.detail .close { position: sticky; top: 0; float: right; width: 44px; height: 44px; border: 1.5px solid var(--line); background: #FFFFFF; font-size: 18px; }
-.detail .tip { background: #FFF6DA; border-left: 4px solid var(--yolk); padding: 12px 16px; margin: 8px 0; }
+.detail .close { position: sticky; top: 0; float: right; width: 48px; height: 48px; border-radius: 999px; border: none; background: var(--ink); color: #FFFFFF; font-size: 18px; z-index: 1; }
+.detail .close:hover { background: #333333; }
+.detail .tip { background: #FFF1C2; border-radius: 16px; padding: 14px 18px; margin: 10px 0; }
 .scroll-x { overflow-x: auto; }
 .box { border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
@@ -149,7 +157,7 @@ function renderHome() {
   app.innerHTML = `
     <section id="list">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-        <h2 style="margin:0;font-size:24px;font-weight:900">최근 예측 예시<sup class="muted" style="font-size:14px;font-weight:400;margin-left:6px">${d.length}</sup></h2>
+        <h2 style="margin:0;font-size:24px;font-weight:900">최근 예측<sup class="muted" style="font-size:14px;font-weight:400;margin-left:6px">${d.length}</sup></h2>
       </div>
       <div class="grid3">${cells}</div>
     </section>
@@ -302,6 +310,7 @@ function renderResult(code) {
         ${x.hub && x.hub.reach_hub ? `<span class="num" style="font-size:56px;line-height:1">${Number(x.hub.reach_hub).toFixed(1)}<span style="font-size:18px;margin-left:4px">명</span></span><span style="font-size:14px">허브 1명이 전한 평균 인원 · 보통 사람의 ${x.hub.ratio}배</span>` : '<span class="muted">-</span>'}${MORE}</section>
       <section class="box clickable" style="justify-content:space-between" data-detail="validation" tabindex="0" role="button" aria-label="검증 자세히 보기"><span class="label"><span class="dot" style="background:#111"></span>Validation</span>
         ${DATA.validation ? `<span class="num" style="font-size:56px;line-height:1">${DATA.validation.rank_corr >= 0 ? '+' : ''}${Number(DATA.validation.rank_corr).toFixed(2)}</span><span style="font-size:14px">${esc(DATA.validation.target)} · 실제 카페 매출 순위와의 상관</span>` : '<span class="muted">검증 기록 없음</span>'}${MORE}</section>
+      <div id="dim" class="dim" hidden></div>
       <div id="detail" class="detail" hidden role="dialog" aria-modal="false" aria-labelledby="detail-title"></div>
     </div>
     <p class="foot">가상 시민과 서울시 상권 데이터로 계산한 예측이며 실제 매출을 보장하지 않습니다.</p>`;
@@ -434,12 +443,15 @@ function openDetail(key, box, x) {
   const body = { curve: detailCurve, promo: detailPromo, fix: detailFix, channel: detailChannel, hub: detailHub, validation: detailValidation }[key];
   if (!body) return;
   const panel = document.getElementById('detail');
-  panel.innerHTML = `<button class="close" aria-label="닫기">✕</button>${body(x, d)}`;
+  panel.innerHTML = `<button class="close" aria-label="닫기">✕</button><div class="detail-yolk" aria-hidden="true"></div>${body(x, d)}`;
   panel.hidden = false;
+  const dim = document.getElementById('dim');
+  dim.hidden = false;
   panel.style.top = box.offsetTop + 'px';
   panel.scrollTop = 0;
   lastBox = box;
-  const close = () => { panel.hidden = true; if (lastBox) lastBox.focus(); };
+  const close = () => { panel.hidden = true; dim.hidden = true; if (lastBox) lastBox.focus(); };
+  dim.onclick = close;
   panel.querySelector('.close').addEventListener('click', e => { e.stopPropagation(); close(); });
   panel.onkeydown = e => { if (e.key === 'Escape') close(); };
   panel.querySelector('.close').focus();

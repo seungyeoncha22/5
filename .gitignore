@@ -3,3 +3,4 @@ data/raw/
 .streamlit/secrets.toml
 __pycache__/
 *.pyc
+runs/
