@@ -603,6 +603,7 @@ def simulate(dong_code, dong, people, edges, reactions, geo, w, seed, stats=None
                             "customer_scale": w.get("customer_scale", 1.0)},
             "channel_share": channel_share, "channel_total": channel_total, "hubs": hubs,
             "group_awareness": group_awareness,
+            "group_count": dict(sorted(g_total.items())),  # 반경 안 집단별 가상 시민 수 (인원 적은 집단 거르기용)
             "scenarios": promo_out.get("scenarios"), "budget_plan": promo_out.get("budget_plan"),
             "hub_vs_broad": promo_out.get("hub_vs_broad"), "prescriptions": promo_out.get("prescriptions"),
             "diagnosis": None}
