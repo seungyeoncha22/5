@@ -52,7 +52,8 @@ header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stSidebar"], [d
 .nr-hero p { font-size: 18px; line-height: 1.6; color: #111111; margin: 0; }
 /* 입력 영역 */
 .st-key-nr-search { box-sizing: border-box; width: calc(100% - 80px); max-width: 1280px; margin: 8px auto 0 !important;
-  background: #FFFFFF; border: 1.5px solid #111111 !important; border-radius: 0 !important; padding: 24px 28px 20px !important; }
+  background: #FFFFFF; border: 3px solid #111111 !important; border-radius: 28px !important; padding: 32px 36px 28px !important;
+  box-shadow: 10px 10px 0 #F5B301; }
 .st-key-nr-search div[data-testid="stVerticalBlockBorderWrapper"] { border: none !important; }
 .stTextInput input, div[data-baseweb="select"] input, div[data-baseweb="select"] div, .stNumberInput input {
   font-family: 'Pretendard', sans-serif !important; font-size: 17px !important; font-weight: 400 !important; color: #111111; }
@@ -284,7 +285,7 @@ STEPS = [  # (키, 이름, 필수 여부, 질문)
     ("dongs", "후보 동네", True, "어느 동네를 비교해볼까요? (최대 3곳)"),
     ("hours", "영업시간", False, "몇 시부터 몇 시까지 여나요?"),
     ("days", "영업 요일", False, "어떤 요일에 여나요?"),
-    ("cost", "월세·객단가", False, "월세와 손님 한 명이 쓰는 금액은 얼마인가요?"),
+    ("cost", "월세·객단가", False, "월세와 손님 한 명이 쓰는 평균 금액은 얼마인가요?"),
     ("budget", "홍보 예산", False, "홍보에 얼마를 쓸 수 있나요?"),
 ]
 ss = st.session_state
