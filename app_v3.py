@@ -66,10 +66,36 @@ div[data-baseweb="select"] > div { min-height: 56px; }
 span[data-baseweb="tag"], .stMultiSelect [data-baseweb="tag"] { background-color: #111111 !important; border-radius: 0 !important; }
 span[data-baseweb="tag"] span, span[data-baseweb="tag"] svg { color: #FFFFFF !important; fill: #FFFFFF !important; }
 div[data-testid="stExpander"] details { border-radius: 0 !important; border: 1px solid #E0E0E0 !important; }
-.stButton button { border-radius: 999px; height: 52px; padding: 0 36px; background: #F5B301 !important; color: #111111 !important;
-  border: none; transition: background-color 200ms ease; }
-.stButton button p { font-family: 'Pretendard', sans-serif !important; font-weight: 600 !important; font-size: 17px !important; letter-spacing: -0.01em; }
-.stButton button:hover { background: #E5A500 !important; }
+.stButton button { border-radius: 999px; height: 48px; padding: 0 28px; transition: background-color 200ms ease, color 200ms ease; }
+.stButton button p { font-family: 'Pretendard', sans-serif !important; font-weight: 600 !important; font-size: 16px !important; }
+.stButton button[kind="primary"], [data-testid="stBaseButton-primary"] { background: #F5B301 !important; color: #111111 !important; border: none !important; }
+.stButton button[kind="primary"]:hover, [data-testid="stBaseButton-primary"]:hover { background: #E5A500 !important; }
+.stButton button[kind="secondary"], [data-testid="stBaseButton-secondary"] { background: #FFFFFF !important; color: #111111 !important; border: 1.5px solid #111111 !important; }
+.stButton button[kind="secondary"]:hover, [data-testid="stBaseButton-secondary"]:hover { background: #111111 !important; color: #FFFFFF !important; }
+.stButton button[kind="secondary"]:disabled, [data-testid="stBaseButton-secondary"]:disabled { border-color: #CFCFCF !important; color: #9A9A9A !important; background: #FFFFFF !important; }
+.stButton button[kind="tertiary"], [data-testid="stBaseButton-tertiary"] { height: auto; padding: 4px 0; background: none !important; border: none !important; }
+.stButton button[kind="tertiary"] p, [data-testid="stBaseButton-tertiary"] p { font-size: 14px !important; color: #595959 !important; text-decoration: underline; }
+[data-testid="stBaseButton-pills"] { border-radius: 999px !important; border: 1.5px dashed #BDBDBD !important; background: #FFFFFF !important; min-width: 56px; height: 48px; }
+[data-testid="stBaseButton-pills"] p { color: #9A9A9A !important; }
+[data-testid="stBaseButton-pillsActive"] { border-radius: 999px !important; border: 1.5px solid #111111 !important; background: #111111 !important; min-width: 56px; height: 48px; }
+.nr-days { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; margin: 6px 0 0; }
+.nr-days .on { color: #111111; font-weight: 700; } .nr-days .off { color: #9A9A9A; }
+[data-testid="stBaseButton-pillsActive"] p { color: #FFFFFF !important; }
+.nr-track { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-bottom: 18px; margin-bottom: 8px; border-bottom: 1px solid #E0E0E0; }
+.nr-step { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #9A9A9A; }
+.nr-step b { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; border: 1.5px solid #CFCFCF; }
+.nr-step.opt b { border-style: dashed; }
+.nr-step.done { color: #111111; } .nr-step.done b { background: #111111; border: 1.5px solid #111111; color: #FFFFFF; }
+.nr-step.now { color: #111111; font-weight: 700; } .nr-step.now b { background: #F5B301; border: 1.5px solid #F5B301; color: #111111; }
+.nr-sep { font-size: 12px; color: #595959; padding-left: 14px; border-left: 1.5px dashed #CFCFCF; }
+.nr-sum-label { font-size: 14px; color: #595959; }
+.nr-sum-val { font-size: 16px; color: #111111; }
+.nr-q { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; margin: 18px 0 10px; }
+.nr-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.nr-badge.req { background: #111111; color: #FFFFFF; }
+.nr-badge.opt { background: #FFFFFF; color: #595959; border: 1px dashed #9A9A9A; }
+.nr-ok { font-size: 14px; color: #7A5200; background: #FFF6DA; padding: 8px 14px; margin: 12px 0 0; display: inline-block; }
+.st-key-nr-bar { box-sizing: border-box; width: calc(100% - 80px); max-width: 1280px; margin: 16px auto 0 !important; }
 .stButton button:focus-visible { outline: 2px solid #111111; outline-offset: 2px; }
 .nr-note { font-size: 14px; color: #595959; margin: 4px 0 0; }
 /* 안내·오류 메시지도 검색 상자와 같은 폭으로 */
@@ -224,9 +250,20 @@ weights = read_json(ROOT / "config" / "weights.json", {})
 spw = weights.get("steps_per_week", 2)
 
 
+RECENT = RUNS / "recent.json"
+
+
 def home_examples():
-    recent = [read_json(DATA / f"result_{c}.json") for c in ["1144066000", "1144071000", "1144069000"]]
-    return sorted([build_dong(r, spw) for r in recent if r and r.get("weekly_visitors")], key=lambda d: -(d["monthly"] or 0))
+    """가장 최근에 실제로 돌린 결과. 아직 없으면 기본 3개 동(서교·연남·망원1)"""
+    rec = read_json(RECENT) or {}
+    results = [read_json(Path(p)) for p in rec.get("paths", [])]
+    results = [r for r in results if r and r.get("weekly_visitors")]
+    idea = rec.get("idea")
+    if not results:
+        results = [read_json(DATA / f"result_{c}.json") for c in ["1144066000", "1144071000", "1144069000"]]
+        results = [r for r in results if r and r.get("weekly_visitors")]
+        idea = scenario0.get("business_idea") or "디저트 카페"
+    return sorted([build_dong(r, spw) for r in results], key=lambda d: -(d["monthly"] or 0)), idea
 
 
 def render_view(view, extra, height):
@@ -238,55 +275,182 @@ def render_view(view, extra, height):
 
 
 if page == "home":
-    examples = home_examples()
-    render_view("hero", {"dongs": examples, "idea": scenario0.get("business_idea") or "디저트 카페"}, 680)
+    examples, examples_idea = home_examples()
+    render_view("hero", {"dongs": examples, "idea": examples_idea}, 680)
 
-# ---------- 입력 (계산 방법·팀 화면에서는 숨김) ----------
-go = False
-opts = {"open_hours": None, "open_days": None, "rent": None, "avg_price": None, "budget": None}
-if page in ("home", "result"):
-    with st.container(key="nr-search"):
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            idea = st.text_input("가게 (필수)", value=st.session_state.get("idea", ""),
-                                 placeholder="예) 20대 대학생 대상 합리적인 가격의 디저트 카페")
-        with c2:
-            picked = st.multiselect("후보 동네 (필수, 최대 3곳)", labels, default=st.session_state.get("picked", []),
-                                    max_selections=3, placeholder="동 이름을 입력해 검색")
-        with st.expander("상세 조건 (선택)"):
-            st.markdown('<p class="nr-note">월세를 넣으면 손익분기, 홍보 예산을 넣으면 채널별 홍보 추천, 영업시간·요일을 넣으면 그 시간대 유동인구가 반영돼요. 비워두면 기본 시뮬레이션만 보여드려요.</p>', unsafe_allow_html=True)
-            h1, h2, h3 = st.columns([1, 1, 2])
-            with h1:
-                use_hours = st.checkbox("영업시간 지정")
-            with h2:
-                start = st.selectbox("여는 시간", list(range(0, 24)), index=10, disabled=not use_hours, format_func=lambda h: f"{h}시")
-            with h3:
-                end = st.selectbox("닫는 시간", list(range(1, 25)), index=21, disabled=not use_hours, format_func=lambda h: f"{h}시")
-            days = st.multiselect("영업 요일", DAYS, default=DAYS)
-            n1, n2, n3 = st.columns(3)
-            with n1:
-                rent = st.number_input("월세 (만 원)", min_value=0, step=10, value=0, help="0이면 넣지 않은 것으로 봐요")
-            with n2:
-                price = st.number_input("객단가 (원)", min_value=0, step=500, value=0, help="0이면 동네 평균을 써요")
-            with n3:
-                budget = st.number_input("홍보 예산 (만 원)", min_value=0, step=10, value=0, help="0이면 홍보 추천을 계산하지 않아요")
-        go = st.button("결과 보기")
+# ---------- 입력: 한 단계씩 (필수 2개 -> 선택 4개) ----------
+STEPS = [  # (키, 이름, 필수 여부, 질문)
+    ("idea", "가게", True, "어떤 가게를 열 계획인가요?"),
+    ("dongs", "후보 동네", True, "어느 동네를 비교해볼까요? (최대 3곳)"),
+    ("hours", "영업시간", False, "몇 시부터 몇 시까지 여나요?"),
+    ("days", "영업 요일", False, "어떤 요일에 여나요?"),
+    ("cost", "월세·객단가", False, "월세와 손님 한 명이 쓰는 금액은 얼마인가요?"),
+    ("budget", "홍보 예산", False, "홍보에 얼마를 쓸 수 있나요?"),
+]
+ss = st.session_state
+ss.setdefault("step", 0)
+ss.setdefault("w", {"idea": "", "dongs": [], "open": None, "close": None, "days": DAYS[:], "rent": 0, "price": 0, "budget": 0})
+w = ss["w"]
 
-    opts = {
-        "open_hours": [start, end] if use_hours and end > start else None,
-        "open_days": days if days and len(days) < 7 else None,
-        "rent": rent * 10000 if rent else None,
-        "avg_price": price or None,
-        "budget": budget * 10000 if budget else None,
+
+def to_opts(w):
+    hours_ok = w["open"] is not None and w["close"] is not None and w["close"] > w["open"]
+    return {
+        "open_hours": [w["open"], w["close"]] if hours_ok else None,
+        "open_days": w["days"] if w["days"] and len(w["days"]) < 7 else None,
+        "rent": w["rent"] * 10000 if w["rent"] else None,
+        "avg_price": w["price"] or None,
+        "budget": w["budget"] * 10000 if w["budget"] else None,
     }
-    if go:
-        if not idea.strip() or not picked:
-            st.warning("가게와 후보 동네는 꼭 넣어주세요.")
-            go = False
+
+
+def summary(key):
+    if key == "idea":
+        return w["idea"]
+    if key == "dongs":
+        return ", ".join(d.split(" · ")[0] for d in w["dongs"])
+    if key == "hours":
+        o = to_opts(w)["open_hours"]
+        return f"{o[0]}시 ~ {o[1]}시" if o else "정하지 않음"
+    if key == "days":
+        return "매일" if len(w["days"]) == 7 else ("·".join(w["days"]) or "정하지 않음")
+    if key == "cost":
+        parts = ([f"월세 {w['rent']:,}만 원"] if w["rent"] else []) + ([f"객단가 {w['price']:,}원"] if w["price"] else [])
+        return ", ".join(parts) or "넣지 않음"
+    return f"{w['budget']:,}만 원" if w["budget"] else "넣지 않음"
+
+
+def tracker(cur):
+    items = []
+    for i, (key, name, req, _) in enumerate(STEPS):
+        if i == 2:
+            items.append('<span class="nr-sep">선택</span>')
+        state = "done" if i < cur else ("now" if i == cur else "todo")
+        mark = "✓" if state == "done" else str(i + 1)
+        items.append(f'<span class="nr-step {state} {"opt" if not req else ""}"><b>{mark}</b>{name}</span>')
+    return '<div class="nr-track">' + "".join(items) + "</div>"
+
+
+def submit():
+    ss.update(idea=w["idea"], picked=w["dongs"], opts=to_opts(w))
+    st.query_params["page"] = "result"
+    st.rerun()
+
+
+def save_current(key):
+    if key == "idea":
+        w["idea"] = ss.get("in_idea", "").strip()
+    elif key == "dongs":
+        w["dongs"] = list(ss.get("in_dongs", []))
+    elif key == "hours":
+        w["open"], w["close"] = ss.get("in_open"), ss.get("in_close")
+    elif key == "days":
+        w["days"] = list(ss.get("in_days") or [])
+    elif key == "cost":
+        w["rent"], w["price"] = ss.get("in_rent", 0), ss.get("in_price", 0)
+    elif key == "budget":
+        w["budget"] = ss.get("in_budget", 0)
+
+
+idea = w["idea"]
+opts = to_opts(w)
+if page == "home":
+    with st.container(key="nr-search"):
+        cur = ss.step
+        st.markdown(tracker(cur), unsafe_allow_html=True)
+        # 이미 답한 단계: 한 줄 요약 + 수정
+        for i in range(min(cur, len(STEPS))):
+            key, name, _, _ = STEPS[i]
+            c1, c2, c3 = st.columns([1.3, 7, 1], vertical_alignment="center")
+            c1.markdown(f'<span class="nr-sum-label">{name}</span>', unsafe_allow_html=True)
+            c2.markdown(f'<span class="nr-sum-val">{summary(key)}</span>', unsafe_allow_html=True)
+            if c3.button("수정", key=f"edit_{key}", type="tertiary"):
+                ss.step = i
+                st.rerun()
+
+        if cur < len(STEPS):
+            key, name, req, question = STEPS[cur]
+            badge = '<span class="nr-badge req">필수</span>' if req else '<span class="nr-badge opt">선택</span>'
+            st.markdown(f'<div class="nr-q">{badge}{question}</div>', unsafe_allow_html=True)
+            filled = True
+            if key == "idea":
+                ss.setdefault("in_idea", w["idea"])
+                st.text_input(name, key="in_idea", label_visibility="collapsed",
+                              placeholder="예) 20대 대학생 대상 합리적인 가격의 디저트 카페")
+                filled = bool(ss.get("in_idea", "").strip())
+            elif key == "dongs":
+                ss.setdefault("in_dongs", list(w["dongs"]))
+                st.multiselect(name, labels, key="in_dongs", max_selections=3, label_visibility="collapsed",
+                               placeholder="눌러서 고르거나 동 이름을 입력해 검색  예) 서교")
+                filled = bool(ss.get("in_dongs"))
+            elif key == "hours":
+                hours = [None] + list(range(0, 25))
+                fmt_h = lambda h: "정하지 않음" if h is None else f"{h}시"
+                ss.setdefault("in_open", w["open"])
+                ss.setdefault("in_close", w["close"])
+                h1, h2 = st.columns(2)
+                h1.selectbox("여는 시간", hours[:-1], key="in_open", format_func=fmt_h)
+                h2.selectbox("닫는 시간", hours, key="in_close", format_func=fmt_h)
+                o, c = ss.get("in_open"), ss.get("in_close")
+                filled = o is not None and c is not None and c > o
+                if o is not None and c is not None and c <= o:
+                    st.markdown('<p class="nr-note">닫는 시간이 여는 시간보다 늦어야 해요</p>', unsafe_allow_html=True)
+            elif key == "days":
+                ss.setdefault("in_days", list(w["days"]))
+                p1, p2, p3, _ = st.columns([1, 1, 1, 5])
+                for col, (lab, ds) in zip((p1, p2, p3), (("매일", DAYS), ("평일만", DAYS[:5]), ("주말만", DAYS[5:]))):
+                    if col.button(lab, key=f"preset_{lab}", type="tertiary"):
+                        ss["in_days"] = list(ds)
+                        st.rerun()
+                if hasattr(st, "pills"):
+                    st.pills(name, DAYS, selection_mode="multi", key="in_days", label_visibility="collapsed")
+                else:
+                    st.multiselect(name, DAYS, key="in_days", label_visibility="collapsed")
+                on = [d for d in DAYS if d in (ss.get("in_days") or [])]
+                off = [d for d in DAYS if d not in on]
+                st.markdown(f'<p class="nr-days"><span class="on">영업 {"·".join(on) or "없음"}</span>'
+                            f'<span class="off">쉬는 날 {"·".join(off) or "없음"}</span></p>', unsafe_allow_html=True)
+                filled = 0 < len(on) < 7
+            elif key == "cost":
+                ss.setdefault("in_rent", w["rent"])
+                ss.setdefault("in_price", w["price"])
+                n1, n2 = st.columns(2)
+                n1.number_input("월세 (만 원)", min_value=0, step=10, key="in_rent")
+                n2.number_input("객단가 (원)", min_value=0, step=500, key="in_price")
+                filled = bool(ss.get("in_rent") or ss.get("in_price"))
+            elif key == "budget":
+                ss.setdefault("in_budget", w["budget"])
+                st.number_input("홍보 예산 (만 원)", min_value=0, step=10, key="in_budget")
+                filled = bool(ss.get("in_budget"))
+
+            last = cur == len(STEPS) - 1
+            btns = []
+            if cur > 0:
+                btns.append(("prev", "← 이전", "secondary", False))
+            if not last:
+                btns.append(("next", "다음 →" if (req or filled) else "건너뛰기 →", "secondary", req and not filled))
+            if cur >= 2:
+                btns.append(("go", "결과 보기", "primary", False))
+            cols = st.columns([1.2] * len(btns) + [max(0.5, 8 - 1.2 * len(btns))], gap="small")
+            for col, (kind, label, btype, dis) in zip(cols, btns):
+                if col.button(label, key=f"{kind}_{key}", type=btype, disabled=dis, use_container_width=True):
+                    save_current(key)
+                    if kind == "go":
+                        submit()
+                    ss.step = cur - 1 if kind == "prev" else cur + 1
+                    st.rerun()
         else:
-            st.session_state.update(idea=idea, picked=picked, opts=opts)
-            st.query_params["page"] = "result"
-            st.rerun()  # 첫 화면 제목·캐러셀 없이 결과 화면으로 다시 그림
+            if st.button("결과 보기", key="go_end", type="primary"):
+                submit()
+
+elif page == "result":
+    with st.container(key="nr-bar"):
+        c1, c2 = st.columns([8, 1.4], vertical_alignment="center")
+        c1.markdown(f'<span class="nr-sum-val">{ss.get("idea") or ""}</span>', unsafe_allow_html=True)
+        if c2.button("조건 바꾸기", key="back_home", type="secondary"):
+            ss.step = max(ss.get("step", 2), 2)
+            st.query_params["page"] = "home"
+            st.rerun()
 
 # ---------- 결과 계산 ----------
 validation = load_validation()
@@ -297,9 +461,9 @@ if validation:
     payload["validation"] = {"rank_corr": v.get("rank_corr"), "target": v.get("target"), "round": v.get("round")}
 
 if page == "result":
-    picked = st.session_state.get("picked") or default_labels
-    opts = st.session_state.get("opts") or opts
-    idea = st.session_state.get("idea") or idea
+    picked = ss.get("picked") or default_labels
+    opts = ss.get("opts") or opts
+    idea = ss.get("idea") or idea or "디저트 카페"
     codes = [dong_map[l] for l in picked if l in dong_map]
     results = precomputed(codes, opts)
     if results is None:
@@ -312,6 +476,20 @@ if page == "result":
             st.stop()
     payload["dongs"] = sorted([build_dong(r, spw) for r in results if r], key=lambda d: -(d["monthly"] or 0))
     payload["idea"] = idea
+    # 첫 화면 '최근 예측'과 카드가 이 결과로 바뀌게 저장
+    try:
+        RUNS.mkdir(parents=True, exist_ok=True)
+        paths = []
+        for r in results:
+            if not r:
+                continue
+            p = RUNS / "recent" / f"result_{r['dong_code']}.json"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            json.dump(r, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+            paths.append(str(p))
+        json.dump({"paths": paths, "idea": idea}, open(RECENT, "w", encoding="utf-8"), ensure_ascii=False)
+    except OSError:
+        pass
     payload["flags"] = {"promo": bool(opts.get("budget")), "breakeven": bool(opts.get("rent"))}
     cond = []
     if opts.get("open_hours"):
@@ -327,7 +505,7 @@ if page == "result":
     payload["conditions"] = cond
 elif page == "home":
     payload["dongs"] = examples
-    payload["idea"] = scenario0.get("business_idea") or "디저트 카페"
+    payload["idea"] = examples_idea
 
 html = VIEW.read_text(encoding="utf-8").replace("__DATA__", json.dumps(payload, ensure_ascii=False))
 heights = {"home": 520, "result": 2300, "how": 1500}
