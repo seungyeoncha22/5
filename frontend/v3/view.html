@@ -126,7 +126,20 @@ table.plan td.n, table.plan th.n { text-align: right; font-variant-numeric: tabu
 @media (max-width: 900px) {
   .grid4, .grid3, .board { grid-template-columns: minmax(0, 1fr); }
   .span2, .span3 { grid-column: auto; }
-  .hero h1 { font-size: 48px; } .headline h1 { font-size: 72px; }
+  .wrap { padding: 20px 16px 32px; }
+  .hero h1 { font-size: 48px; } .headline h1 { font-size: 64px; }
+  .hero2 { padding-top: 12px; gap: 24px; }
+  .hero2 h1 { font-size: 40px; }
+  .hero2 .left { flex-basis: 100%; gap: 16px; }
+  .hero2 .right { max-width: 100%; flex-basis: 100%; }
+  .car-slide { height: 300px; padding: 24px; }
+  .car-slide .big { font-size: 72px; }
+  .bignum { font-size: 72px !important; }
+  .headline > div:last-child { text-align: left !important; }
+  .page-title { font-size: 40px; }
+  .detail { left: 0; right: 0; padding: 28px 20px 32px; border-radius: 20px; box-shadow: 6px 6px 0 var(--yolk); }
+  #map { height: 380px; }
+  .tabs { overflow-x: auto; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -293,7 +306,7 @@ function renderResult(code) {
     <section class="headline">
       <div><span class="label"><span class="dot"></span>${rank}위 · 후보 ${d.length}곳 중</span><h1>${esc(x.dong)}</h1></div>
       <div style="text-align:right"><div class="muted" style="font-size:16px">3달째 한 달 손님</div>
-        <div class="num" style="font-size:128px;line-height:.95;font-variant-numeric:proportional-nums">${bigNum(x.monthly)}</div>
+        <div class="num bignum" style="font-size:128px;line-height:.95;font-variant-numeric:proportional-nums">${bigNum(x.monthly)}</div>
         <div style="font-size:18px;margin-top:8px">${beR(x.breakeven)} · 손님이 가장 많은 주 ${peak}주 차</div></div>
     </section>
     <p class="muted" style="font-size:15px;margin:16px 0 0">${esc(DATA.idea)} · ${(DATA.conditions || []).length ? DATA.conditions.map(esc).join(' · ') : '상세 조건 없이 기본 시뮬레이션'}${TG.size ? ` · 주요 손님 ${esc(tgText())}` : ''}</p>
@@ -464,11 +477,16 @@ function plain(t) {
     [/설문의 정확히 일치하는 핵심 집단\s*/g, '핵심 손님인 '], [/정확한 집단명\s*/g, ''], [/정확히 일치하는\s*/g, ''],
     [/price_max는 최적가가 아니라 가격 수용 설문이므로,?/g, '이 가격 응답은 "얼마까지 낼 수 있나"를 물은 것이라 정답 가격은 아니에요. 그래서'],
     [/기존 avg_price가 없는 상태에서/g, '아직 메뉴 가격을 정하지 않았으니'],
+    [/특정\s*group\s*\/\s*path\s*(?:의\s*)?(?:실패|중단)(?:가|이)?\s*기록되지 않았고/g, '어느 집단에서도, 어떤 경로에서도 소식이 중간에 끊긴 기록은 없었고'],
+    [/특정\s*group\s*(?:과|와|·|\/)\s*path\s*(?:의\s*)?(?:실패|중단)(?:가|이)?\s*기록되지 않았고/g, '어느 집단에서도, 어떤 경로에서도 소식이 중간에 끊긴 기록은 없었고'],
+    [/group\s*\/\s*path/g, '집단·경로'], [/\bgroup\b/g, '집단'], [/\bpath\b/g, '경로'],
+    [/설문의 정확한\s*/g, '설문에서 '],
     [/피벗하지/g, '방향을 바꾸지'], [/피벗/g, '방향 전환'], [/콘셉트/g, '가게 성격'], [/핵심 집단/g, '핵심 손님'],
     [/open_hours가 null인 기존안에 운영 기준을 보완합니다/g, '영업시간을 정하지 않았던 처음 아이디어에 이 기준을 더해요'],
   ];
   for (const [re, to] of SENT) t = t.replace(re, to);
   for (const [a, b] of TERMS) t = t.split(a).join(b);
+  t = t.replace(/설문의 정확한\s*/g, '설문에서 ');
   t = t.replace(/(\d0대)(이하|이상)?_([가-힣]+)/g, (m, a, b, c) => `${a}${b ? ' ' + b : ''} ${c}`);
   t = t.replace(/(^|[^\d.])0\.(\d{2,4})(?!\d)/g, (m, p, d) => `${p}${Math.round(Number('0.' + d) * 100)}%`);
   // 점수에 뜻 붙이기: "관심도 3.39" -> "관심도가 5점 만점에 3.4점"
@@ -483,17 +501,88 @@ function plain(t) {
   t = t.replace(/[‘'"]?(평일낮|평일저녁|주말)[’'"]?\s*(\d+%)/g, (m, k, v) => `${{ '평일낮': '평일 낮', '평일저녁': '평일 저녁', '주말': '주말' }[k]}에 온다는 사람이 ${v}`);
   // 안 가는 이유: "안 가는 이유 ‘가격’" -> "안 가는 이유로 ‘가격’을 꼽았고"
   t = t.replace(/안 가는 이유\s*(?:은|는)?\s*[‘'"]([^’'"]+)[’'"](이며|이고)?/g, '안 가는 이유로 ‘$1’을 꼽았고');
-  t = t.replace(/낮 시간 연령 비중에서?\s*[‘'"]?20대 ?이하[’'"]?\s*([\d.]+)/g, (m, v) => `낮에 이 동네를 지나는 사람 중 20대가 주민 비율보다 ${Number(v).toFixed(1)}배 많고`);
+  t = t.replace(/낮 시간 연령 비중(?:은|는|이|에서)?\s*[‘'"]?(\d0대)\s*(이하|이상)?[’'"]?\s*(?:은|는|이|가)?\s*([\d.]+)(?:로|으로)?(\s*가장 큽니다\.?|\s*가장 크고,?)?/g,
+    (m, a, b, v, tail) => `낮에 이 동네를 지나는 사람 중 ${a}${b ? ' ' + b : ''}가 이 동네에 사는 ${a}${b ? ' ' + b : ''}보다 약 ${Number(v).toFixed(1)}배 많아요${tail ? '. 이 동네에 가장 많이 모이는 나이대예요.' : ''}`);
   t = t.replace(/경쟁 반영 비율\s*(?:은|는)?\s*(\d+%)/g, '근처 경쟁 가게 때문에 실제로 올 수 있는 손님이 $1 수준으로 줄어들고');
   t = t.replace(/소식이 멈춘 집단\s*(?:은|는)?\s*없음(?:이라|이므로)?/g, '소식이 끊긴 집단은 없어서');
   t = t.replace(/(응답|손님|비중|수요|비율|이유)는/g, (m, w) => w + ({ '응답': '은', '손님': '은', '수요': '는', '비율': '은', '이유': '는', '비중': '은' }[w]));
+  t = t.replace(/(\d+)%은/g, '$1%로').replace(/소식이 끊긴 집단은 없어서 어느 집단에서도/g, '어느 집단에서도');
   t = t.replace(/꼽았고입니다/g, '꼽았어요').replace(/줄어들고입니다/g, '줄어들어요').replace(/손익분기 주차는 (\d+)입니다/g, '$1주 차부터 매출이 고정비를 넘어요');
   t = t.replace(/\s{2,}/g, ' ');
   return t;
 }
-function changeItem(c) {
-  const t = plain(String(c).replace(/^\s*변경\s*:\s*/, '').replace(/\s*(근거|이유)\s*(?::|는)\s*/g, ' ')).trim();
-  return `<p style="margin:0 0 14px">${esc(t)}</p>`;
+/* 수정안을 쉬운 줄글로: 준혁 님 문장에서는 '무엇을 바꾸는지'만 가져오고,
+   이유는 설문·시뮬레이션 숫자로 정해진 문장 틀에 넣어 새로 씀 (어느 동네든 같은 방식) */
+const BUCKET = { '5천이하': '5천 원 이하', '5천~7천': '5천~7천 원', '7천~1만': '7천~1만 원', '1만이상': '1만 원 이상' };
+const WHEN = { '평일낮': '평일 낮', '평일저녁': '평일 저녁', '주말': '주말' };
+const gName = g0 => { const [a, j] = String(g0).split('_'); return `${a.replace('이하', ' 이하').replace('이상', ' 이상')} ${j === '기타' ? '' : j}`.trim(); };
+const pc = v => Math.round(Number(v) * 100);
+const sc1 = v => Number(v).toFixed(1).replace(/\.0$/, '');
+function easyEnd(t) {
+  return t.replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/정리합니다/g, '정리해요').replace(/설정합니다/g, '정해요').replace(/만듭니다/g, '만들어요').replace(/둡니다/g, '둬요')
+    .replace(/보강합니다/g, '더 분명히 해요').replace(/구체화합니다/g, '더 구체적으로 정해요').replace(/유지합니다/g, '그대로 가요')
+    .replace(/않습니다/g, '않아요').replace(/합니다/g, '해요').replace(/입니다/g, '이에요')
+    .replace(/나눕니다/g, '나눠요').replace(/바꿉니다/g, '바꿔요').replace(/높입니다/g, '높여요').replace(/줄입니다/g, '줄여요')
+    .replace(/늘립니다/g, '늘려요').replace(/씁니다/g, '써요').replace(/엽니다/g, '열어요').replace(/맞춥니다/g, '맞춰요')
+    .replace(/낮은 인지율의 다른 연령대/g, '소식을 덜 들은 다른 나이대').replace(/주\s?타깃/g, '주요 손님')
+    .replace(/타깃/g, '주요 손님').replace(/피벗하지/g, '방향을 바꾸지').replace(/피벗/g, '방향 전환').replace(/콘셉트/g, '가게 성격')
+    .replace(/인지율/g, '소식을 들은 비율').replace(/상시/g, '늘').replace(/선택 구조를/g, '메뉴 고르는 방식을').replace(/선택 구조/g, '메뉴 고르는 방식')
+    .replace(/가게 성격로/g, '가게 성격으로').replace(/요\s*:\s*/g, '요. ').replace(/(\S)다:\s*/g, '$1다. ').replace(/\s{2,}/g, ' ').trim();
+}
+function mainGroup(d) {
+  const R = d.reactions || {};
+  const cand = [...TG].filter(g0 => R[g0]);
+  if (cand.length) return cand.sort((a, b) => ((d.group_count || {})[b] || 0) - ((d.group_count || {})[a] || 0))[0];
+  return R['20대이하_학생'] ? '20대이하_학생' : Object.keys(R).sort((a, b) => (R[b].interest || 0) - (R[a].interest || 0))[0];
+}
+const REASON_ORDER = [
+  ['hours', ['영업시간', '영업', '저녁', '주말', '시간대']],
+  ['target', ['타깃', '주요 손님', '연령', '나이대']],
+  ['compete', ['경쟁', '반복', '단골']],
+  ['price', ['가격', '할인', '원 ']],
+  ['menu', ['메뉴', '단품', '세트', '포장']],
+];
+function reasonFor(head, x, d, used) {
+  const R = d.reactions || {}, G = mainGroup(d), r = R[G] || {}, who = `주요 손님인 ${gName(G)}`;
+  // 문장에서 가장 먼저 나오는 주제로 (이미 쓴 이유는 건너뜀)
+  const hits = REASON_ORDER.filter(([k]) => !used.has(k)).map(([k, ws]) => [k, Math.min(...ws.map(w => { const i = head.indexOf(w); return i < 0 ? 1e9 : i; }))]).filter(([, i]) => i < 1e9).sort((a, b) => a[1] - b[1]);
+  const kind = hits.length ? hits[0][0] : null;
+  if (!kind) return '';
+  used.add(kind);
+  if (kind === 'price' && r.price_max) {
+    const pm = Object.entries(r.price_max).sort((a, b) => b[1] - a[1]).slice(0, 2);
+    return `${who}에게 물어보니 가 보고 싶은 마음은 5점 만점에 ${sc1(r.interest)}점이었고, 가지 않는 가장 큰 이유는 '${r.reason_type}'이었어요. 대표 메뉴에 얼마까지 낼 수 있냐고 물었더니 ${pm.map(([k, v]) => `${BUCKET[k] || k}까지라는 사람이 ${pc(v)}%`).join(', ')}였어요.`;
+  }
+  if (kind === 'menu') return `${who}은 '${String(r.reason_text || '').replace(/[.。]+$/, '')}'라고 답했어요.${r.revisit ? ` 한 번 와 본 사람이 다시 오고 싶은 마음은 5점 만점에 ${sc1(r.revisit)}점이라, 고르기 쉬우면 단골이 되기 쉬워요.` : ''}`;
+  if (kind === 'hours' && r.visit_time) return `${who}에게 언제 올 것 같냐고 물었더니 ${Object.entries(r.visit_time).map(([k, v]) => `${WHEN[k] || k} ${pc(v)}%`).join(', ')}였어요. 손님이 많이 오는 때에 문을 열어 두는 게 좋아요.`;
+  if (kind === 'target') {
+    const aw = (d.group_awareness || {})[G], mix = Number((d.day_age_mix || {})['20대이하'] || 0);
+    let t = aw != null ? `시뮬레이션에서 ${gName(G)}은 100명 중 ${pc(aw)}명꼴로 가게 소식을 들었어요.` : '';
+    if (mix >= 1.2) t += ` 낮에 이 동네를 지나는 사람 중 20대가 이 동네에 사는 20대보다 약 ${mix.toFixed(1)}배 많아서, 20대가 모이는 동네예요.`;
+    t += (d.stopped_at || []).length ? ` 다만 ${d.stopped_at.map(z => gName(z.group)).join(', ')}에게는 소식이 중간에 끊겼어요.` : ' 소식이 중간에 끊긴 집단도 없었어요.';
+    return t.trim() + ' 그래서 지금 주요 손님을 바꿀 이유는 없어요.';
+  }
+  if (kind === 'compete') {
+    const w = d.weekly || [], pk = w.indexOf(Math.max(...w));
+    let t = d.demand && d.visitors ? `근처에 비슷한 가게가 많아서, 경쟁이 없다면 ${fmt(d.demand)}명이 올 수 있는데 주변 가게와 나누면 ${fmt(d.visitors)}명 정도예요.` : '';
+    if (w.length) t += ` 손님은 1주 차 ${fmt(w[0])}명에서 ${pk + 1}주 차 ${fmt(w[pk])}명까지 늘었다가 ${w.length}주 차 ${fmt(w[w.length - 1])}명이 돼요.`;
+    if (d.breakeven) t += ` ${d.breakeven}주 차부터 매출이 고정비를 넘어요.`;
+    return t.trim() + ' 그래서 광고를 더 하기보다 부담 없이 다시 올 수 있는 메뉴 구성을 꾸준히 유지하는 게 안전해요.';
+  }
+  return '';
+}
+function changeItem(c, x, d, used) {
+  // 준혁 님 문장에서 '무엇을 바꾸는지'만 쓰고, 이유는 숫자로 새로 씀
+  let t = String(c).replace(/^\s*변경\s*:\s*/, '').split(/\s*근거\s*(?::|는)/)[0].trim();
+  // '무엇을 바꾸는지' 문장만: 첫 문장까지 (앞쪽 콜론 설명은 함께), 그 뒤 원래 설명은 버리고 숫자로 다시 씀
+  const colon = t.indexOf(':');
+  const from = colon > 0 && colon < 60 ? colon : 0;
+  const m = t.slice(from).search(/[다요]\.(\s|$)/);
+  if (m >= 0) t = t.slice(0, from + m + 2);
+  let head = easyEnd(plain(t)).replace(/[.\s]+$/, '') + '.';
+  const why = reasonFor(t, x, d, used);
+  return `<p style="margin:0 0 16px">${esc(head)} ${esc(why)}</p>`;
 }
 
 /* 실제 사례 (기사·공공기관·플랫폼 사례집, 준안 정리) */
@@ -580,7 +669,7 @@ function detailPromo(x, d) {
 
 function detailFix(x, d) {
   let out = `<span class="label"><span class="dot" style="background:#111"></span>Fix</span><h2 id="detail-title">무엇을 바꾸면 좋을까</h2>`;
-  if (x.revision) out += `<h3>고친 아이디어</h3><p><b>${esc(plain(x.revision))}</b></p>${(d.revision_plain && d.revision_plain.length) ? d.revision_plain.map(p0 => `<p style="margin:0 0 14px">${esc(p0)}</p>`).join('') : d.revision_changes.map(changeItem).join('')}`;
+  if (x.revision) out += `<h3>고친 아이디어</h3><p><b>${esc(easyEnd(plain(x.revision)))}</b></p>${(d.revision_plain && d.revision_plain.length) ? d.revision_plain.map(p0 => `<p style="margin:0 0 16px">${esc(p0)}</p>`).join('') : (() => { const used = new Set(); return d.revision_changes.map(c => changeItem(c, x, d, used)).join(''); })()}`;
   if (d.prescriptions.length) out += `<h3>소식이 덜 닿은 집단</h3>${table(['집단', '소식이 닿은 비율', '전체 평균', '안 가는 이유', '추천 채널', '제안'],
     d.prescriptions.map(p => [g(p.group), pct(p.awareness), pct(p.overall_awareness), esc(p.reason_type), esc(nm(p.channel)), esc(plain(p.offer))]), [1, 2])}`;
   if (d.diagnosis) {

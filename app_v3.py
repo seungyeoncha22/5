@@ -161,6 +161,33 @@ def default_store_point(code):
     return (sum(p[0] for p in mine) / len(mine), sum(p[1] for p in mine) / len(mine)) if mine else (37.55, 126.92)
 
 
+@st.cache_data
+def dong_feature(code):
+    geo = read_json(DATA / "dongs.geojson")
+    for feat in (geo or {}).get("features", []):
+        if str(feat["properties"].get("adm_cd2")) == code:
+            return feat
+    return None
+
+
+# 가게 설명에서 주요 손님 집단 읽기 (추천을 고를 때만 쓰고, 예측 계산에는 쓰지 않음)
+AGE_WORDS = {"20대이하": ["10대", "20대", "대학생", "학생", "청년", "mz"], "30대": ["30대"], "40대": ["40대"],
+             "50대이상": ["50대", "60대", "시니어", "어르신", "중장년"]}
+JOB_WORDS = {"학생": ["학생", "대학생", "수험생", "카공"], "직장인": ["직장인", "회사원", "오피스", "출근"],
+             "주부": ["주부", "엄마", "맘", "육아"], "자영업": ["자영업", "사장님"]}
+
+
+def target_groups(idea):
+    t = (idea or "").lower()
+    ages = [a for a, ws in AGE_WORDS.items() if any(x in t for x in ws)]
+    jobs = [j for j, ws in JOB_WORDS.items() if any(x in t for x in ws)]
+    if not ages and not jobs:
+        return []
+    ages = ages or list(AGE_WORDS)
+    jobs = jobs or list(JOB_WORDS) + ["기타"]
+    return [f"{a}_{j}" for a in ages for j in jobs]
+
+
 def km(a, b):
     dy = (a[0] - b[0]) * 111.0
     dx = (a[1] - b[1]) * 111.0 * math.cos(math.radians(a[0]))
@@ -209,8 +236,18 @@ def build_dong(r, steps_per_week):
             "group_count": r.get("group_count") or {},
             "prescriptions": r.get("prescriptions") or [], "diagnosis": r.get("diagnosis"),
             "revision_changes": rev.get("changes") or [],
+            "revision_plain": rev.get("changes_plain") or [],  # 준혁 님이 쉬운 말로 다시 쓴 버전이 있으면 그걸 먼저
+            "reactions": load_reactions(), "day_age_mix": r.get("day_age_mix") or {}, "stopped_at": r.get("stopped_at") or [],
+            "demand": r.get("visitors_demand"), "visitors": r.get("visitors"), "breakeven": r.get("breakeven_week"),
         },
     }
+
+
+@st.cache_data
+def load_reactions():
+    """집단별 설문 반응 {집단: {...}} (쉬운 말 설명을 만들 때 숫자 근거로 사용)"""
+    x = read_json(DATA / "reactions.json", [])
+    return {r["group"]: r for r in x} if isinstance(x, list) else (x or {})
 
 
 def load_validation():
@@ -327,6 +364,18 @@ def home_examples():
     return sorted([build_dong(r, spw) for r in results], key=lambda d: -(d["monthly"] or 0)), idea
 
 
+def is_mobile():
+    """휴대폰이면 화면이 한 줄로 길어지니 높이를 더 크게"""
+    try:
+        ua = st.context.headers.get("User-Agent", "") or ""
+    except Exception:
+        ua = ""
+    return any(k in ua for k in ("Mobi", "Android", "iPhone"))
+
+
+MOBILE = is_mobile()
+
+
 def render_view(view, extra, height):
     base = {"view": view, "dong_total": len(labels), "people_total": len(load_people()), "flags": {},
             "conditions": [], "dongs": [], "validation": None, "validation_all": []}
@@ -337,7 +386,7 @@ def render_view(view, extra, height):
 
 if page == "home":
     examples, examples_idea = home_examples()
-    render_view("hero", {"dongs": examples, "idea": examples_idea}, 680)
+    render_view("hero", {"dongs": examples, "idea": examples_idea}, 900 if MOBILE else 680)
 
 # ---------- 입력: 한 단계씩 (필수 2개 -> 선택 4개) ----------
 STEPS = [  # (키, 이름, 필수 여부, 질문)
@@ -466,14 +515,31 @@ if page == "home":
                             code = dong_map[lab]
                             base = default_store_point(code)
                             pin = place.get(lab)
-                            m = folium.Map(location=pin or base, zoom_start=16, tiles="OpenStreetMap", control_scale=True)
+                            ver = ss.setdefault("map_ver", {}).get(code, 0)
+                            feat = dong_feature(code)
+                            view_c, view_z = base, 16
+                            if feat:  # 동 전체가 보이는 가운데·확대 정도를 직접 계산 (탭 안 지도는 자동 맞춤이 세계지도로 풀려서)
+                                pts = [pt for ring in (feat["geometry"]["coordinates"] if feat["geometry"]["type"] == "Polygon"
+                                                       else [r for poly in feat["geometry"]["coordinates"] for r in poly]) for pt in ring]
+                                lats, lngs = [p[1] for p in pts], [p[0] for p in pts]
+                                view_c = ((min(lats) + max(lats)) / 2, (min(lngs) + max(lngs)) / 2)
+                                span = max(max(lats) - min(lats), (max(lngs) - min(lngs)) * 0.8, 0.002)
+                                # 지도 높이 380px 중 약 300px에 동 전체가 들어가는 확대 정도
+                                view_z = int(max(13, min(17, math.floor(math.log2(360 * 300 / (256 * span))))))
+                            m = folium.Map(location=view_c, zoom_start=view_z, tiles="OpenStreetMap", control_scale=True)
+                            if feat:  # 이 동의 경계를 노란 테두리로
+                                folium.GeoJson(feat, style_function=lambda _: {"color": "#F5B301", "weight": 4, "fillColor": "#F5B301", "fillOpacity": 0.06},
+                                               tooltip=lab.split(" · ")[0]).add_to(m)
                             folium.CircleMarker(base, radius=6, color="#9A9A9A", fill=True, fill_opacity=0.6,
                                                 tooltip="지정하지 않으면 여기(동 중심)로 계산").add_to(m)
                             if pin:
                                 folium.CircleMarker(pin, radius=11, color="#111111", weight=4, fill=True,
                                                     fill_color="#F5B301", fill_opacity=1, tooltip="내 가게").add_to(m)
-                            out = st_folium(m, key=f"map_{code}", height=380, use_container_width=True,
-                                            returned_objects=["last_clicked"])
+                            out = st_folium(m, key=f"map_{code}_{ver}", height=380, use_container_width=True,
+                                            center=view_c, zoom=view_z, returned_objects=["last_clicked"])
+                            if st.button("지도 처음 위치로", key=f"reset_{code}", type="tertiary"):
+                                ss["map_ver"][code] = ver + 1  # 지도를 새로 그려 확대·이동을 되돌림
+                                st.rerun()
                             clicked = (out or {}).get("last_clicked")
                             if clicked and tuple(place.get(lab) or ()) != (clicked["lat"], clicked["lng"]):
                                 place[lab] = (clicked["lat"], clicked["lng"])
@@ -600,6 +666,7 @@ if page == "result":
     except OSError:
         pass
     payload["flags"] = {"promo": bool(opts.get("budget")), "breakeven": bool(opts.get("rent"))}
+    payload["target_groups"] = target_groups(idea)
     cond = []
     if opts.get("open_hours"):
         cond.append(f"영업 {opts['open_hours'][0]}~{opts['open_hours'][1]}시")
@@ -619,8 +686,9 @@ elif page == "home":
     payload["idea"] = examples_idea
 
 html = VIEW.read_text(encoding="utf-8").replace("__DATA__", json.dumps(payload, ensure_ascii=False))
-heights = {"home": 520, "result": 2900, "how": 1500}
-components.html(html, height=heights.get(page, 1200), scrolling=False)
+heights = {"home": 520, "result": 2900, "how": 2300}
+mobile_heights = {"home": 1300, "result": 7600, "how": 5200}  # 휴대폰은 칸이 한 줄로 쌓여서 훨씬 길어짐
+components.html(html, height=(mobile_heights if MOBILE else heights).get(page, 1200), scrolling=MOBILE)
 
 if st.query_params.get("debug") == "1":
     with st.expander("개발용 정보"):
