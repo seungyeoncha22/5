@@ -636,6 +636,8 @@ def main():
     geo = load_json(folder / "dongs.geojson") if (folder / "dongs.geojson").exists() else None
     scenario = load_json(folder / "scenario.json") if (folder / "scenario.json").exists() else {}
     scenario["_promo"] = not args.all_dongs and not args.no_promo
+    if scenario.get("other_fixed_monthly") is not None:  # 사장님이 넣은 기타 고정비(인건비·관리비 등)
+        w["other_fixed_monthly"] = float(scenario["other_fixed_monthly"])
     for code, ll in (scenario.get("store_locations") or {}).items():
         if ll and len(ll) == 2:
             STORE_OVERRIDE[str(code)] = (float(ll[0]), float(ll[1]))
