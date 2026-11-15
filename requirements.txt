@@ -7,3 +7,5 @@ folium
 
 streamlit-folium
 folium
+
+openai
