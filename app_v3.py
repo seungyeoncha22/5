@@ -506,7 +506,7 @@ def ai_enrich(result, path, idea, opts):
                     "rent_text": f"월세 {o['rent'] // 10000:,}만 원" if o.get("rent") else None,
                     "budget_text": f"홍보 예산 {o['budget'] // 10000:,}만 원" if o.get("budget") else None,
                     "avg_price_text": f"객단가 {o['avg_price']:,}원" if o.get("avg_price") else None,
-                    "open_hours_text": f"{o['open_hours'][0]}시~{o['open_hours'][1]}시 영업" if o.get("open_hours") else None,
+                    "open_hours_text": ((f"{o['open_hours'][0]}시~{o['open_hours'][1]}시 영업" if o["open_hours"][1] <= 24 else f"{o['open_hours'][0]}시~다음 날 {o['open_hours'][1] - 24}시 영업") if o.get("open_hours") else None),
                     "open_days_text": f"{'·'.join(o['open_days'])}요일 영업" if o.get("open_days") else None}
         fr, freact, _ = mod.filter_analysis_groups(result, reactions)
         drop = ("steps", "weekly_visits_model", "seed", "day_seeds", "runs", "visitors_range", "store_location", "ai_revision",
@@ -795,13 +795,16 @@ if page == "home":
                 ss.setdefault("in_close", w["close"])
                 h1, h2 = st.columns(2)
                 h1.selectbox("여는 시간", hours[:-1], key="in_open", format_func=fmt_h)
-                h2.selectbox("닫는 시간", hours, key="in_close", format_func=fmt_h)
+                o0 = ss.get("in_open")
+                # 여는 시간보다 이른 시각은 '다음 날'로 보여줘서 새벽 영업(13시~다음 날 3시)도 바로 고를 수 있게
+                fmt_c = lambda h: "정하지 않음" if h is None else (f"다음 날 {h}시" if o0 is not None and h <= o0 else f"{h}시")
+                h2.selectbox("닫는 시간", hours, key="in_close", format_func=fmt_c)
                 o, c = ss.get("in_open"), ss.get("in_close")
                 filled = o is not None and c is not None and c != o
                 if o is not None and c is not None and c < o:
-                    st.markdown(f'<p class="nr-note">다음 날 {c}시까지 여는 것으로 계산해요. 자정 이후는 유동인구 자료가 없어 24시까지만 반영돼요.</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p class="nr-note">{o}시부터 다음 날 {c}시까지 영업으로 계산해요.</p>', unsafe_allow_html=True)
                 elif o is not None and c is not None and c == o:
-                    st.markdown('<p class="nr-note">여는 시간과 닫는 시간이 같아요</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="nr-note">여는 시간과 닫는 시간이 같아요. 닫는 시간을 다시 골라주세요.</p>', unsafe_allow_html=True)
             elif key == "days":
                 ss.setdefault("in_days", list(w["days"]))
                 p1, p2, p3, _ = st.columns([1, 1, 1, 5])
