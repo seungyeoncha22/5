@@ -278,16 +278,37 @@ def build_dong(r, steps_per_week, idea=None):
             "revision_source": "file" if file_rev else ("ai" if r.get("ai_revision") else None),
             "overall_awareness": overall, "competition": r.get("competition_factor"),
             "weekly_with": (r.get("budget_plan") or {}).get("weekly_with"),
-            "reactions": load_reactions(), "day_age_mix": r.get("day_age_mix") or {}, "stopped_at": r.get("stopped_at") or [],
+            "reactions": load_reactions(survey_type(idea)), "day_age_mix": r.get("day_age_mix") or {}, "stopped_at": r.get("stopped_at") or [],
             "demand": r.get("visitors_demand"), "visitors": r.get("visitors"), "breakeven": r.get("breakeven_week"),
         },
     }
 
 
+# ---------- 가게 유형별 설문 (frontend/data/real/reactions_types/<유형>.json 이 있으면 그 반응으로 계산) ----------
+SURVEY_TYPES = {  # 유형: (화면 이름, 가게 설명에서 찾을 말)
+    "commute": ("출근길 커피", ["출근", "테이크아웃", "오피스", "아침 커피", "회사원", "직장인"]),
+    "kids": ("아이와 오는 브런치", ["아이", "키즈", "엄마", "유아", "육아", "브런치"]),
+    "senior": ("어르신 동네 카페", ["어르신", "노인", "시니어", "중장년", "60대", "50~60대"]),
+    "photo": ("사진 찍는 감성 카페", ["사진", "감성", "포토", "인스타", "핫플"]),
+    "teen": ("학생 저가 음료", ["10대", "학원", "고등학생", "중학생", "청소년", "저가 음료"]),
+}
+TYPE_DIR = DATA / "reactions_types"
+
+
+def survey_type(idea):
+    """가게 설명과 가장 가까운 유형 (그 유형 설문 파일이 있을 때만). 없으면 None = 기본 설문"""
+    t = idea or ""
+    scored = sorted(((sum(w in t for w in ws), k) for k, (_, ws) in SURVEY_TYPES.items()), reverse=True)
+    if scored and scored[0][0] > 0 and (TYPE_DIR / f"{scored[0][1]}.json").exists():
+        return scored[0][1]
+    return None
+
+
 @st.cache_data
-def load_reactions():
-    """집단별 설문 반응 {집단: {...}} (쉬운 말 설명을 만들 때 숫자 근거로 사용)"""
-    x = read_json(DATA / "reactions.json", [])
+def load_reactions(rtype=None):
+    """집단별 설문 반응 {집단: {...}}. 유형이 있으면 그 유형 설문"""
+    p = TYPE_DIR / f"{rtype}.json" if rtype else DATA / "reactions.json"
+    x = read_json(p if p.exists() else DATA / "reactions.json", [])
     return {r["group"]: r for r in x} if isinstance(x, list) else (x or {})
 
 
@@ -354,7 +375,7 @@ def loading_html(n, title=None, sub=None):
 
 # ---------- AI 진단·수정안 (OpenAI 키가 있을 때만, 없으면 건너뜀) ----------
 AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
-AI_STYLE = "v5"  # 아래 규칙을 바꾸면 이 값을 올려서 예전 진단을 다시 만들게
+AI_STYLE = "v6"  # 아래 규칙을 바꾸면 이 값을 올려서 예전 진단을 다시 만들게
 STYLE_RULES = """
 
 [말투와 쉬운 말 — 위 규칙보다 우선]
@@ -372,7 +393,7 @@ STYLE_RULES = """
 - '시뮬레이션이 현실과 비슷하다', '정확하다' 같은 검증되지 않은 말은 쓰지 않습니다.
 - 가격은 facts의 '객단가 위치'만 근거로 판단합니다. '가격대 안이에요'나 '낮아요'면 가격 부담을 문제로 쓰지 않고 가격을 내리라고 하지 않습니다. 가격을 바꾸자고 할 때는 손익분기도 함께 말합니다.
 - 숫자는 facts에 있는 것만 씁니다. 3달째 한 달 손님과 12주 합계를 섞지 않습니다. 홍보는 facts의 '추천 홍보안'과 그 효과만 쓰고, 추천안에 없는 채널이나 다른 숫자는 쓰지 않습니다.
-- 설문에는 '평일 아침' 시간대가 없어요. 아침 영업은 판단하지 않습니다.
+- facts의 '주요 손님 오는 때'에 '평일 아침'이 없으면 아침 영업은 판단하지 않습니다.
 - 주요 손님이 시뮬레이션 인구에 없으면(facts의 '주의') 다른 집단을 주요 손님으로 바꾸지 말고, 결과가 동네 주민 기준이라는 점을 먼저 말합니다.
 - 설문 응답 인용(안 가는 이유 문장)이 가게 설명과 맞지 않으면(예: 대학생 가게인데 고등학생 얘기) 문장을 그대로 인용하지 말고 '가격', '시간'처럼 이유만 씁니다.
 - 주요 손님이 거의 쓰지 않는 경로(10% 미만)는 원인이나 대책으로 쓰지 않습니다.
@@ -413,7 +434,7 @@ def ai_facts(result, reactions, idea, opts):
     r = R.get(G, {})
     gname = G.replace("이하", " 이하").replace("이상", " 이상").replace("_", " ")
     bucket = {"5천이하": "5천 원 이하", "5천~7천": "5천~7천 원", "7천~1만": "7천~1만 원", "1만이상": "1만 원 이상"}
-    when = {"평일낮": "평일 낮", "평일저녁": "평일 저녁", "주말": "주말"}
+    when = {"평일아침": "평일 아침", "평일낮": "평일 낮", "평일저녁": "평일 저녁", "주말": "주말"}
     ga = result.get("group_awareness") or {}
     avg = sum(ga.values()) / len(ga) if ga else None
     nm_ = lambda g: g.replace("이하", " 이하").replace("이상", " 이상").replace("_기타", " (기타)").replace("_", " ")
@@ -423,7 +444,12 @@ def ai_facts(result, reactions, idea, opts):
     if price:  # 입력 객단가가 설문 가격대에서 어디쯤인지 (AI가 판단하지 않게 미리 계산)
         can = (1.0 if price <= 5000 else sum(v for k, v in pm.items() if k in ("5천~7천", "7천~1만", "1만이상")) if price <= 7000
                else sum(v for k, v in pm.items() if k in ("7천~1만", "1만이상")) if price <= 10000 else pm.get("1만이상", 0))
-        pos = "가장 많이 고른 가격대보다 낮아요" if price < 5000 else ("가격대 안이에요" if can >= 0.6 else "주요 손님 다수가 낼 수 있다고 한 금액보다 높아요")
+        order = ["5천이하", "5천~7천", "7천~1만", "1만이상"]
+        p_idx = 0 if price <= 5000 else 1 if price <= 7000 else 2 if price <= 10000 else 3
+        top_idx = order.index(max(pm, key=pm.get)) if pm else p_idx
+        pos = ("가장 많이 고른 가격대보다 낮아요" if p_idx < top_idx else
+               "가장 많이 고른 가격대 안이에요" if p_idx == top_idx else
+               ("가격대 안이에요" if can >= 0.6 else "주요 손님 다수가 낼 수 있다고 한 금액보다 높아요"))
     f = {
         "주요 손님": (f"{nm_(G)} (가게 설명의 주요 손님이 시뮬레이션 인구에 없어서 이 동네 주민 중 가장 많은 집단 기준)" if (outside or not tg) else ", ".join(nm_(g) for g in tg)),
         "주요 손님 중 기준 집단": nm_(G),
@@ -500,7 +526,7 @@ def ai_enrich(result, path, idea, opts):
     try:
         from openai import OpenAI
         client = OpenAI(api_key=key)
-        reactions = read_json(DATA / "reactions.json", [])
+        reactions = list(load_reactions(survey_type(idea)).values())
         o = opts or {}
         scenario = {"business_idea": idea, "candidate_dongs": [result["dong_code"]], **o,
                     "rent_text": f"월세 {o['rent'] // 10000:,}만 원" if o.get("rent") else None,
@@ -558,6 +584,11 @@ def run_engine(codes, opts, idea):
                 os.link(src, dst)
             except OSError:
                 shutil.copy(src, dst)
+    if opts.get("survey_type") and (TYPE_DIR / f"{opts['survey_type']}.json").exists():
+        dst = folder / "reactions.json"
+        if dst.exists():
+            dst.unlink()
+        shutil.copy(TYPE_DIR / f"{opts['survey_type']}.json", dst)
     scenario = {"business_idea": idea, "candidate_dongs": codes, **opts}
     json.dump(scenario, open(folder / "scenario.json", "w", encoding="utf-8"), ensure_ascii=False)
     cmd = [sys.executable, str(ROOT / "engine" / "simulate.py"), "--data", f"runs/{key}", "--dongs", *codes]
@@ -877,6 +908,9 @@ if page == "result":
     picked = ss.get("picked") or default_labels
     opts = ss.get("opts") or opts
     idea = ss.get("idea") or idea or "디저트 카페"
+    stype = survey_type(idea)
+    if stype:  # 유형 설문이 있으면 그 반응으로 다시 계산 (계산 저장 키에도 들어감)
+        opts = {**opts, "survey_type": stype}
     codes = [dong_map[l] for l in picked if l in dong_map]
     results = precomputed(codes, opts)
     paths = [DATA / f"result_{c}.json" for c in codes] if results is not None else [RUNS / run_key(codes, opts) / f"result_{c}.json" for c in codes]
@@ -918,7 +952,8 @@ if page == "result":
     payload["flags"] = {"promo": bool(opts.get("budget")), "breakeven": bool(opts.get("rent"))}
     payload["target_groups"] = target_groups(idea)
     payload["target_outside"] = outside_target(idea)
-    payload["opts"] = {k: v for k, v in (opts or {}).items() if k != "store_locations"}
+    payload["survey_label"] = SURVEY_TYPES[stype][0] if stype else None
+    payload["opts"] = {k: v for k, v in (opts or {}).items() if k not in ("store_locations", "survey_type")}
     cond = []
     if opts.get("open_hours"):
         h0, h1 = opts["open_hours"]

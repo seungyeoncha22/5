@@ -312,7 +312,7 @@ function renderResult(code) {
     </section>
     ${DATA.target_outside ? `<p class="tip" style="margin-top:16px">가게 설명의 주요 손님(${esc(DATA.target_outside)})은 시뮬레이션 인구(동네 주민)에 없어요. 아래 결과는 이 동네 주민 기준이에요.</p>` : ''}
     <p style="font-size:16px;margin:16px 0 0">${targetLine(x)}</p>
-    <p class="muted" style="font-size:15px;margin:16px 0 0">${esc(DATA.idea)} · ${(DATA.conditions || []).length ? DATA.conditions.map(esc).join(' · ') : '상세 조건 없이 기본 시뮬레이션'}${TG.size ? ` · 주요 손님 ${esc(tgText())}` : ''}</p>
+    <p class="muted" style="font-size:15px;margin:16px 0 0">${esc(DATA.idea)} · ${(DATA.conditions || []).length ? DATA.conditions.map(esc).join(' · ') : '상세 조건 없이 기본 시뮬레이션'}${TG.size ? ` · 주요 손님 ${esc(tgText())}` : ''} · ${DATA.survey_label ? `'${esc(DATA.survey_label)}' 유형 설문 기준` : '기본 설문(20대 대학생 디저트 카페) 기준'}</p>
     ${x.summary ? `<p style="font-size:18px;line-height:1.7;max-width:900px;margin:24px 0 0">${esc(toYo(plain(x.summary)))}</p>` : ''}
     <div class="tabs" role="tablist" aria-label="후보 동네">${d.map(v => `<button role="tab" aria-selected="${v.code === x.code}" data-go="${v.code}">${esc(v.dong)}</button>`).join('')}</div>
     <div class="board">
@@ -446,7 +446,7 @@ function planHTML(x) {
     const can = p0 <= 5000 ? 1 : p0 <= 7000 ? (pm['5천~7천'] || 0) + (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : p0 <= 10000 ? (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : (pm['1만이상'] || 0);
     if (can < 0.6)
       rows.push([0, '오픈 전', `<b>가격</b> 더 낮은 가격의 메뉴를 하나 이상 함께 두기`, gName(mainGroup(d)), '-', `객단가 ${fmt(p0)}원까지 낼 수 있다는 응답이 ${pc(can)}%예요`]);
-    else if (p0 < 5000 && !x.breakeven && F.breakeven)
+    else if ((() => { const order = ['5천이하', '5천~7천', '7천~1만', '1만이상']; const pi = p0 <= 5000 ? 0 : p0 <= 7000 ? 1 : p0 <= 10000 ? 2 : 3; const ti = order.indexOf(Object.entries(pm).sort((a2, b2) => b2[1] - a2[1])[0][0]); return pi < ti; })() && !x.breakeven && F.breakeven)
       rows.push([0, '오픈 전', `<b>가격</b> 지금 가격은 손님이 낼 수 있는 선보다 낮아요`, gName(mainGroup(d)), '-', '손익분기를 넘지 못해서, 가격을 조금 올릴 여유가 있는지 검토해 보세요']);
   }
   if (hubs.length) {
@@ -552,7 +552,7 @@ function plain(t) {
 /* 수정안을 쉬운 줄글로: 준혁 님 문장에서는 '무엇을 바꾸는지'만 가져오고,
    이유는 설문·시뮬레이션 숫자로 정해진 문장 틀에 넣어 새로 씀 (어느 동네든 같은 방식) */
 const BUCKET = { '5천이하': '5천 원 이하', '5천~7천': '5천~7천 원', '7천~1만': '7천~1만 원', '1만이상': '1만 원 이상' };
-const WHEN = { '평일낮': '평일 낮', '평일저녁': '평일 저녁', '주말': '주말' };
+const WHEN = { '평일아침': '평일 아침', '평일낮': '평일 낮', '평일저녁': '평일 저녁', '주말': '주말' };
 const gName = g0 => { const [a, j] = String(g0).split('_'); return `${a.replace('이하', ' 이하').replace('이상', ' 이상')} ${j === '기타' ? '(기타)' : j}`.trim(); };
 const pc = v => Math.round(Number(v) * 100);
 // 받침에 맞는 조사: 학생은 / 주부는, 학생으로 / 주부로
