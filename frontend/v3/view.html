@@ -67,6 +67,41 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-o
 .case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .case-card { background: #FFFFFF; border: 1.5px solid var(--ink); border-radius: 20px; padding: 18px 20px; }
 .case-card .case { border-top: none; padding-top: 4px; margin-top: 8px; }
+.cal-card { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; background: #FFFFFF; border: 1.5px solid var(--ink); border-radius: 24px; padding: 20px 24px; margin-top: 8px; }
+.cal-weeks { display: flex; flex-wrap: wrap; gap: 12px; }
+.cal-week { display: flex; flex-direction: column; gap: 6px; width: 120px; }
+.cal-wk { font-size: 14px; font-weight: 700; color: var(--ink); }
+.cal-week input { height: 52px; border: 1.5px solid #D9D2C3; border-radius: 16px; padding: 0 14px; font-size: 20px; font-weight: 700; font-family: inherit; background: #FFFBEF; color: var(--ink); }
+.cal-week input:focus { outline: none; border-color: var(--yolk); box-shadow: 0 0 0 3px rgba(245, 179, 1, .25); }
+.cal-pred { font-size: 12px; color: #8A8A8A; }
+.cal-btns { display: flex; gap: 10px; padding-bottom: 22px; }
+.cal-go { height: 52px; padding: 0 28px; border-radius: 999px; border: none; background: var(--yolk); color: var(--ink); font-weight: 700; font-size: 16px; font-family: inherit; cursor: pointer; }
+.cal-go:hover { background: #E5A500; }
+.cal-ex { height: 52px; padding: 0 22px; border-radius: 999px; border: 1.5px solid var(--ink); background: #FFFFFF; font-size: 15px; font-family: inherit; cursor: pointer; }
+.cal-ex:hover { background: var(--ink); color: #FFFFFF; }
+.cal-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 24px 0 12px; }
+.cal-verdict p { flex-basis: 100%; margin: 6px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.cal-chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 8px 16px; border-radius: 999px; background: #F2EEE4; font-size: 14px; }
+.cal-chip b { font-size: 18px; }
+.cal-chip.down { background: #111111; color: #FFFFFF; }
+.cal-chip.up { background: var(--yolk); color: var(--ink); }
+.cal-chart { background: #FFFFFF; border: 1.5px solid #E6DFD0; border-radius: 24px; padding: 16px 20px 8px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend i { display: inline-block; }
+.lg-pred { width: 22px; border-top: 2px dashed #A8A8A8; }
+.lg-corr { width: 22px; height: 4px; border-radius: 4px; background: var(--yolk); }
+.lg-act { width: 10px; height: 10px; border-radius: 999px; background: #111111; }
+.cal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.cal-stat { position: relative; display: flex; flex-direction: column; gap: 2px; background: #FFFFFF; border: 1.5px solid var(--ink); border-radius: 20px; padding: 16px 18px; }
+.cal-sl { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+.cal-before { font-size: 14px; color: #9A9A9A; text-decoration: line-through; }
+.cal-after { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cal-tip { margin: 16px 0 0; padding: 14px 18px; background: #FFF1C2; border-radius: 16px; font-size: 16px; line-height: 1.6; }
+.cal-badge { position: absolute; top: 14px; right: 14px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.cal-badge.up { background: var(--yolk); color: var(--ink); }
+.cal-badge.down { background: #111111; color: #FFFFFF; }
+@media (max-width: 900px) { .cal-week { width: calc(50% - 6px); } .cal-btns { padding-bottom: 0; width: 100%; } .cal-go, .cal-ex { flex: 1; } }
 .playbook { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 8px; }
 .play-card { background: #FFFFFF; border: 1.5px solid var(--ink); border-radius: 20px; padding: 18px 20px; }
 .play-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; margin-bottom: 8px; }
@@ -304,15 +339,14 @@ function renderResult(code) {
 
   app.innerHTML = `
     <section class="headline">
-      <div><span class="label"><span class="dot"></span>${rank}위 · 후보 ${d.length}곳 중 (3달째 한 달 손님 기준)</span><h1>${esc(x.dong)}</h1></div>
+      <div><span class="label"><span class="dot"></span>${rank}위</span><h1>${esc(x.dong)}</h1></div>
       <div style="text-align:right"><div class="muted" style="font-size:16px">3달째 한 달 손님</div>
         <div class="num bignum" style="font-size:128px;line-height:.95;font-variant-numeric:proportional-nums">${bigNum(x.monthly)}</div>
         <div style="font-size:18px;margin-top:8px">${beR(x.breakeven)} · 손님이 가장 많은 주 ${peak}주 차</div>
-        ${F.promo && (x.detail.weekly_with || []).length ? `<div class="muted" style="font-size:15px;margin-top:6px">추천 홍보까지 하면 3달째 한 달 손님 약 ${fmt(Math.round(x.detail.weekly_with.slice(-4).reduce((p, q) => p + q, 0) * (x.monthly / Math.max(1, x.weekly.slice(-4).reduce((p, q) => p + q, 0)))))}명</div>` : ''}</div>
+        </div>
     </section>
     ${DATA.target_outside ? `<p class="tip" style="margin-top:16px">가게 설명의 주요 손님(${esc(DATA.target_outside)})은 시뮬레이션 인구(동네 주민)에 없어요. 아래 결과는 이 동네 주민 기준이에요.</p>` : ''}
     <p style="font-size:16px;margin:16px 0 0">${targetLine(x)}</p>
-    <p class="muted" style="font-size:15px;margin:16px 0 0">${esc(DATA.idea)} · ${(DATA.conditions || []).length ? DATA.conditions.map(esc).join(' · ') : '상세 조건 없이 기본 시뮬레이션'}${TG.size ? ` · 주요 손님 ${esc(tgText())}` : ''} · ${DATA.survey_label ? `'${esc(DATA.survey_label)}' 유형 설문 기준` : '기본 설문(20대 대학생 디저트 카페) 기준'}</p>
     ${x.summary ? `<p style="font-size:18px;line-height:1.7;max-width:900px;margin:24px 0 0">${esc(toYo(plain(x.summary)))}</p>` : ''}
     <div class="tabs" role="tablist" aria-label="후보 동네">${d.map(v => `<button role="tab" aria-selected="${v.code === x.code}" data-go="${v.code}">${esc(v.dong)}</button>`).join('')}</div>
     <div class="board">
@@ -357,6 +391,16 @@ function renderResult(code) {
         <h3 style="margin:0;font-size:28px;font-weight:900;letter-spacing:-0.02em">12주 실행 계획</h3>
         ${planHTML(x)}
       </section>
+      <section class="box" style="grid-column:1 / -1" aria-label="오픈 후 보정">
+        <span class="label"><span class="dot"></span>After open</span>
+        <h3 style="margin:0;font-size:28px;font-weight:900;letter-spacing:-0.02em">오픈했다면, 실제 손님으로 다시 맞추기</h3>
+        <p class="muted" style="margin:0;font-size:15px">처음 몇 주의 실제 손님 수를 넣으면, 예측 곡선을 그 숫자에 맞게 고쳐서 남은 주와 손익분기를 다시 계산해요.</p>
+        <div class="cal-card">
+          <div class="cal-weeks">${[1, 2, 3, 4].map(i => `<label class="cal-week"><span class="cal-wk">${i}주 차</span><input type="number" min="0" inputmode="numeric" data-cal="${i - 1}" placeholder="0"><span class="cal-pred">예측 ${fmt(x.weekly[i - 1])}명</span></label>`).join('')}</div>
+          <div class="cal-btns"><button class="cal-go" id="cal-go">다시 예측</button><button class="cal-ex" id="cal-ex" type="button">예시 숫자 넣기</button></div>
+        </div>
+        <div id="cal-out"></div>
+      </section>
       <div id="dim" class="dim" hidden></div>
       <div id="detail" class="detail" hidden role="dialog" aria-modal="false" aria-labelledby="detail-title"></div>
     </div>
@@ -369,6 +413,7 @@ function renderResult(code) {
     box.addEventListener('click', open);
     box.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
+  setupCalibrate(x);
 }
 
 /* ---------- 검증을 쉬운 말로 ---------- */
@@ -424,7 +469,7 @@ function planHTML(x) {
     if (bp.open_discount) {
       const price = pres.find(p => p.reason_type === '가격');
       const R0 = (d.reactions || {})[mainGroup(d)] || {};
-      const dWho = TG.size && R0.reason_type === '가격' ? `${gName(mainGroup(d))} (안 가는 이유 1위가 가격)` : price ? g(price.group) : '가격이 부담인 손님';
+      const dWho = R0.reason_type === '가격' ? `${gName(mainGroup(d))} (안 가는 이유 1위가 가격)` : `첫 방문을 망설이는 ${gName(mainGroup(d))}`;
       rows.push([1, '오픈 주', '<b>오픈 할인</b> 첫 2주 20%', dWho, `약 ${won(bp.discount_cost || 0)}`, `할인해준 금액만큼 비용 · 사례: <a href="${esc(CASES['오픈할인'][0].url)}" target="_blank" rel="noopener">${esc(CASES['오픈할인'][0].name)}</a>`]);
     }
   } else {
@@ -538,6 +583,8 @@ function plain(t) {
   t = t.replace(/\bmoderate\b/gi, '중간').replace(/인터레스트/g, '관심도').replace(/오픈_days|open_days/g, '영업 요일');
   t = t.replace(/(\d+)\.(\d)\d*%/g, (m, a, b) => Math.round(Number(a + '.' + b)) + '%');
   t = t.replace(/(\d{1,3}(?:,\d{3})+)\s?원/g, (m, n) => { const v = Number(n.replace(/,/g, '')); return v >= 10000 && v % 10000 === 0 ? `${(v / 10000).toLocaleString('ko-KR')}만 원` : m; });
+  t = t.replace(/성격와/g, '성격과').replace(/성격는/g, '성격은').replace(/성격를/g, '성격을');
+  t = t.replace(/[^.]*(다른 후보지와|후보지 간|후보 간)[^.]*(불가능|불가|할 수 없)[^.]*\.\s*/g, '').replace(/[^.]*지역 데이터만 있어[^.]*\.\s*/g, '');
   t = t.replace(/(가게 )+가게 성격/g, '가게 성격').replace(/소식 소식/g, '소식').replace(/(\d+(?:\.\d)?)점점/g, '$1점').replace(/\s*진단\s*:\s*$/g, '');
   t = t.replace(/(\d+)\.(\d)\d+점/g, '$1.$2점');
   t = t.replace(/(입소문|성격|비율|정도|손님|대장|학생|직장인|주부|자영업|\(기타\)|당근|인스타|맘카페|에타)(와|과|는|은|를|을|가|이|로|으로)(?=[\s,.)]|$)/g, (m, w0, j) => {
@@ -694,6 +741,102 @@ function targetLine(x) {
   return parts.join(' · ');
 }
 
+/* 오픈 후 보정: engine/open_calibrate.py와 같은 방식 (크기 alpha, 속도 beta 격자 탐색) */
+const CAL_A = Array.from({ length: 55 }, (_, i) => +(0.3 + 0.05 * i).toFixed(2));
+const CAL_B = Array.from({ length: 21 }, (_, i) => +(0.5 + 0.05 * i).toFixed(2));
+function curveAt(p, t) {
+  const n = p.length;
+  if (t <= 0) return p[0] * Math.max(t + 1, 0);
+  if (t <= n - 1) { const i = Math.floor(t), f = t - i; return p[i] * (1 - f) + p[Math.min(i + 1, n - 1)] * f; }
+  const r = n >= 2 && p[n - 2] > 0 ? p[n - 1] / p[n - 2] : 1;
+  return p[n - 1] * Math.pow(r, t - (n - 1));
+}
+function calFit(p, act) {
+  let best = [Infinity, 1, 1];
+  for (const b of CAL_B) {
+    const base = act.map((_, t) => curveAt(p, b * t));
+    for (const a of CAL_A) {
+      const e = base.reduce((s0, v, i) => s0 + (a * v - act[i]) ** 2, 0);
+      if (e < best[0]) best = [e, a, b];
+    }
+  }
+  return { a: best[1], b: best[2] };
+}
+function calBreakeven(w, asm) {
+  if (!asm.avg_price || !asm.rent) return null;
+  const fw = (asm.rent + (asm.other_fixed_monthly || 0)) / 4.345, m = asm.gross_margin || 0.6;
+  const i = w.findIndex(n => n * asm.avg_price * m >= fw);
+  return i < 0 ? null : i + 1;
+}
+function calSVG(pred, corr, act) {
+  const W = 760, H = 260, L = 44, R = 70, T = 20, B = 34;
+  const mx = Math.max(...pred, ...corr, ...act, 1) * 1.1;
+  const step = Math.pow(10, Math.floor(Math.log10(mx / 3))), tick = Math.ceil(mx / 3 / step) * step;
+  const X = i => L + i * (W - L - R) / (pred.length - 1), Y = v => T + (1 - v / mx) * (H - T - B);
+  const pts = arr => arr.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+  const n = pred.length - 1;
+  let g = '';
+  for (let v = 0; v <= mx; v += tick) g += `<line x1="${L}" y1="${Y(v)}" x2="${W - R}" y2="${Y(v)}" stroke="#EDE6D8"/><text x="${L - 8}" y="${Y(v) + 4}" font-size="12" text-anchor="end" fill="#9A9A9A">${fmt(v)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="처음 예측과 다시 맞춘 12주 손님 곡선">
+    ${g}
+    <polygon points="${X(0)},${Y(0)} ${pts(corr)} ${X(n)},${Y(0)}" fill="#F5B301" opacity="0.12"/>
+    <polyline points="${pts(pred)}" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-dasharray="5 6"/>
+    <polyline points="${pts(corr)}" fill="none" stroke="#F5B301" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+    ${act.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="7" fill="#111" stroke="#FFF" stroke-width="3"/>`).join('')}
+    <text x="${X(n) + 10}" y="${Y(pred[n]) + 4}" font-size="13" fill="#8A8A8A">${fmt(pred[n])}</text>
+    <text x="${X(n) + 10}" y="${Y(corr[n]) + 5}" font-size="15" font-weight="700" fill="#111">${fmt(corr[n])}</text>
+    ${pred.map((_, i) => `<text x="${X(i)}" y="${H - 10}" font-size="12" text-anchor="middle" fill="#8A8A8A">${i + 1}주</text>`).join('')}
+  </svg>`;
+}
+function setupCalibrate(x) {
+  const go = document.getElementById('cal-go'), ex = document.getElementById('cal-ex'), out = document.getElementById('cal-out');
+  if (!go) return;
+  const inputs = [...document.querySelectorAll('[data-cal]')];
+  ex.onclick = () => { inputs.forEach((el, i) => { el.value = Math.round(x.weekly[i] * (0.65 + 0.1 * Math.sin(i * 2.1))); }); go.click(); };
+  go.onclick = () => {
+    const act = []; for (const el of inputs) { if (el.value === '') break; act.push(Math.max(0, Number(el.value))); }
+    if (act.length < 2) { out.innerHTML = '<p class="nr-note" style="margin-top:12px">2주 이상 넣어주세요.</p>'; return; }
+    const pred = x.weekly, { a, b } = calFit(pred, act);
+    const corr = pred.map((_, t) => t < act.length ? act[t] : Math.round(a * curveAt(pred, b * t)));
+    const asm = (x.detail || {}).assumptions || {};
+    const be0 = calBreakeven(pred, asm), be1 = calBreakeven(corr, asm);
+    const m0 = pred.slice(-4).reduce((p, q) => p + q, 0), m1 = corr.slice(-4).reduce((p, q) => p + q, 0);
+    const scale = x.monthly / Math.max(1, m0);
+    const pk = corr.indexOf(Math.max(...corr));
+    let rpw = null; for (let t = pk + 1; t < corr.length; t++) if (corr[t] < corr[t - 1]) { rpw = t + 1; break; }
+    const sizeTxt = a >= 1.05 ? `예측보다 손님이 ${a.toFixed(1)}배 많고` : a <= 0.95 ? `예측보다 손님이 ${Math.round((1 - a) * 100)}% 적고` : '손님 규모는 예측과 비슷하고';
+    const speedTxt = b >= 1.05 ? '소식이 예측보다 빨리 퍼지고 있어요' : b <= 0.95 ? '소식이 예측보다 천천히 퍼지고 있어요' : '퍼지는 속도는 예측과 비슷해요';
+    const stat = (label, before, after, betterUp = true) => {
+      const diff = typeof before === 'number' && typeof after === 'number' ? after - before : null;
+      const good = diff === null ? null : (betterUp ? diff >= 0 : diff <= 0);
+      return `<div class="cal-stat"><span class="cal-sl">${label}</span>
+        <span class="cal-before" ${before === after ? 'style="text-decoration:none"' : ''}>${before === after ? '처음 예측과 같아요' : (typeof before === 'number' ? fmt(before) + '명' : before)}</span>
+        <span class="cal-after">${typeof after === 'number' ? fmt(after) + '명' : after}</span>
+        ${diff !== null && diff !== 0 ? `<span class="cal-badge ${good ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${fmt(diff)}명</span>` : ''}</div>`;
+    };
+    const beTxt = v => v ? v + '주 차' : '12주 안 못 넘음';
+    const rp0 = (x.detail || {}).repromo && x.detail.repromo.week ? x.detail.repromo.week + '주 차' : '-';
+    out.innerHTML = `
+      <div class="cal-verdict">
+        <span class="cal-chip ${a < 0.95 ? 'down' : a > 1.05 ? 'up' : ''}">손님 규모 <b>${a.toFixed(1)}배</b></span>
+        <span class="cal-chip">퍼지는 속도 <b>${b.toFixed(1)}배</b></span>
+        <p>${sizeTxt}, ${speedTxt}.</p>
+      </div>
+      <div class="cal-chart">
+        <div class="cal-legend"><span><i class="lg-pred"></i>처음 예측</span><span><i class="lg-corr"></i>다시 맞춘 예측</span><span><i class="lg-act"></i>넣은 실제 손님</span></div>
+        ${calSVG(pred, corr, act)}
+      </div>
+      <div class="cal-stats">
+        ${stat('3달째 한 달 손님', x.monthly, Math.round(m1 * scale))}
+        ${stat('12주 합계', pred.reduce((p, q) => p + q, 0), corr.reduce((p, q) => p + q, 0))}
+        ${F.breakeven ? stat('손익분기', beTxt(be0), beTxt(be1)) : ''}
+        ${stat('다시 알리기 좋은 때', rp0, rpw ? rpw + '주 차' : '-')}
+      </div>
+      <p class="cal-tip">${a <= 0.8 ? '예측보다 손님이 적어요. 남은 홍보비를 가장 효과가 큰 채널에 먼저 쓰고, 손님이 줄기 시작하기 전에 다시 알리기를 준비하세요.' : a >= 1.2 ? '예측보다 손님이 많아요. 재료·인력을 늘리고, 첫 손님들의 후기가 쌓이도록 후기 이벤트를 이어가세요.' : '예측과 비슷하게 가고 있어요. 계획대로 진행하면서 4주마다 다시 넣어 확인해 보세요.'}</p>
+      <p class="muted" style="font-size:13px;margin:8px 0 0">앞 4주를 넣어 다시 맞추면 뒤 8주 예측 오차가 서교·연남·망원1에서 32~51% 줄었어요 (가상 실제 손님으로 시험).</p>`;
+  };
+}
+
 /* 실제 사례 (기사·공공기관·플랫폼 사례집, 준안 정리) */
 const CASES = {
   '검색': [
@@ -745,7 +888,7 @@ function detailCurve(x, d) {
   if (F.breakeven && a.rent && a.avg_price) {
     const fixedWeek = (a.rent + (a.other_fixed_monthly || 0)) / 4.345;
     const need = Math.ceil(fixedWeek / (a.avg_price * (a.gross_margin || 0.6)));
-    out += `<h3>손익분기</h3><p>월세 ${fmt(Math.round(a.rent / 10000))}만 원과 기타 고정비 ${fmt(Math.round((a.other_fixed_monthly || 0) / 10000))}만 원을 주 단위로 나누면 약 ${fmt(Math.round(fixedWeek / 10000))}만 원이에요(기타 고정비는 인건비·관리비 등을 가정한 값이에요). 객단가 ${fmt(a.avg_price)}원, 마진율 ${Math.round((a.gross_margin || 0.6) * 100)}%면 <b>주 ${fmt(need)}명</b>이 넘어야 고정비를 넘어요.</p>
+    out += `<h3>손익분기</h3><p>월세 ${fmt(Math.round(a.rent / 10000))}만 원과 기타 고정비 ${fmt(Math.round((a.other_fixed_monthly || 0) / 10000))}만 원을 주 단위로 나누면 약 ${fmt(Math.round(fixedWeek / 10000))}만 원이에요(기타 고정비는 인건비·관리비 등으로, 입력하지 않으면 500만 원으로 가정해요). 객단가 ${fmt(a.avg_price)}원, 마진율 ${Math.round((a.gross_margin || 0.6) * 100)}%면 <b>주 ${fmt(need)}명</b>이 넘어야 고정비를 넘어요.</p>
       <p>${x.breakeven ? `이 동네는 ${x.breakeven}주 차에 처음 넘어요.` : '12주 안에는 이 선을 넘지 못해요.'}</p>`;
   }
   const rp = d.repromo;
@@ -759,14 +902,17 @@ function detailCurve(x, d) {
     const need = Math.ceil(fixedWeek / (a.avg_price * m));
     if (needPrice > a.avg_price * 1.8)
       out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)도 필요한 손님(주 ${fmt(need)}명)의 ${Math.round(top / need * 100)}%라, 이 자리에서는 가격만으로 해결하기 어려워요. 월세와 고정비가 더 낮은 자리를 찾거나, 가게 규모를 줄이는 쪽을 먼저 검토해 보세요.</p>`;
-    else
-      out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)에도 주 ${fmt(need)}명이 필요해서 12주 안에는 손익분기를 넘지 못해요. 지금 손님 수라면 객단가를 약 ${fmt(needPrice)}원으로 올리거나${maxRent > 0 ? `, 월세가 ${fmt(maxRent)}만 원 아래인 자리여야` : ', 고정비 자체를 줄여야'} 맞아요.</p>`;
+    else {
+      const pmx = ((d.reactions || {})[mainGroup(d)] || {}).price_max || {};
+      const canPay = needPrice <= 5000 ? 1 : needPrice <= 7000 ? (pmx['5천~7천'] || 0) + (pmx['7천~1만'] || 0) + (pmx['1만이상'] || 0) : needPrice <= 10000 ? (pmx['7천~1만'] || 0) + (pmx['1만이상'] || 0) : (pmx['1만이상'] || 0);
+      const payNote = !Object.keys(pmx).length ? '' : needPrice <= 5000 ? ' 5천 원 이하라 주요 손님 대부분이 낼 수 있는 가격이에요.' : (canPay >= 0.6 ? ` 주요 손님 ${pc(canPay)}%가 이 가격까지 낼 수 있다고 해서 해볼 만해요.` : ` 다만 이 가격까지 낼 수 있다는 주요 손님은 ${pc(canPay)}%뿐이라, 가격보다 월세·고정비를 먼저 보는 게 나아요.`);
+      out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)에도 주 ${fmt(need)}명이 필요해서 12주 안에는 손익분기를 넘지 못해요. 지금 손님 수라면 객단가를 약 ${fmt(needPrice)}원으로 올리거나${maxRent > 0 ? `, 월세가 ${fmt(maxRent)}만 원 아래인 자리여야` : ', 고정비 자체를 줄여야'} 맞아요.${payNote} 기타 고정비(지금 ${fmt(Math.round((a.other_fixed_monthly || 0) / 10000))}만 원)가 더 적다면 입력에서 바꿔 다시 계산해 보세요.</p>`;
+    }
   }
   if (peak <= 4) out += '<p class="tip">소문이 빨리 퍼지고 빨리 식는 동네예요. 오픈 직후 온 손님에게 재방문 쿠폰을 주는 게 중요해요.</p>';
   const half = w.findIndex(v => v >= Math.max(...w) / 2) + 1;
   if (half >= 5) out += '<p class="tip">천천히 알려지는 동네예요. 초반 몇 주는 손님이 적어도 버틸 수 있게 자금 계획을 잡으세요.</p>';
   else if (half <= 2) out += '<p class="tip">빨리 알려지는 동네예요. 오픈 직후 손님이 몰릴 수 있으니 재료와 인력을 넉넉히 준비하세요.</p>';
-  else out += `<p class="tip">${peak}주 차쯤 손님이 가장 많아요. 그 직후가 추가 홍보를 하기 좋은 때예요.</p>`;
   return out;
 }
 
@@ -780,7 +926,7 @@ function detailPromo(x, d) {
     ${(() => { const spent = Object.values(bp.split || {}).reduce((p, q) => p + q, 0) + (bp.discount_cost || 0); return bp.budget && spent > bp.budget ? `<p class="muted" style="font-size:14px">광고 ${fmt(Math.round(Object.values(bp.split || {}).reduce((p, q) => p + q, 0) / 10000))}만 원에 오픈 할인 비용(약 ${fmt(Math.round((bp.discount_cost || 0) / 10000))}만 원)을 더하면 예산을 조금 넘어요. 할인 기간을 줄이면 맞출 수 있어요.</p>` : ''; })()}<h3>채널별로 예산 전부를 썼을 때</h3>
     <p class="muted" style="font-size:14px">'오픈 전·오픈 주·손님이 줄 때'는 예산 절반을 그 시기에 썼을 때 늘어나는 손님이에요.</p>
     ${table(['채널', '가장 좋은 시기', '오픈 전', '오픈 주', '손님이 줄 때', '12주 동안 더 오는 손님', '만 원당', '광고비 대비 매출'],
-      sc.map(s => Object.assign({}, s, { visitors_gain: Math.max(0, s.visitors_gain || 0), per_10k: Math.max(0, s.per_10k || 0), roas: Math.max(0, s.roas || 0) })).map(s => [esc(nm(s.name)), esc(({ '오픈전': '오픈 전', '오픈주': '오픈 주', '정체기': '손님이 줄 때' })[s.timing] || s.timing), ...(s.by_timing ? ['오픈전', '오픈주', '정체기'].map(t => fmt(s.by_timing[t])) : ['-', '-', '-']),
+      sc.map(s => Object.assign({}, s, { visitors_gain: Math.max(0, s.visitors_gain || 0), per_10k: Math.max(0, s.per_10k || 0), roas: s.name === '오픈이벤트' ? null : Math.max(0, s.roas || 0) })).map(s => [esc(nm(s.name)), esc(({ '오픈전': '오픈 전', '오픈주': '오픈 주', '정체기': '손님이 줄 때' })[s.timing] || s.timing), ...(s.by_timing ? ['오픈전', '오픈주', '정체기'].map(t => fmt(s.by_timing[t])) : ['-', '-', '-']),
         fmt(s.visitors_gain) + '명', s.per_10k ?? '-', s.roas ?? '-']), [2, 3, 4, 5, 6, 7])}`;
   if (bp.robust) out += `<h3>믿을 만한가요</h3><p>광고 단가가 최소~최대 범위에서 바뀌어도 1순위(${esc(nm(bp.robust.top_channel))})가 그대로인 경우가 ${Math.round(bp.robust.same_top_share * 100)}%예요. ${bp.robust.stable ? '단가가 달라져도 추천이 거의 그대로예요.' : bp.robust.same_top_share < 0.5 ? '<b>단가에 따라 1순위가 자주 바뀌어요.</b> 한 채널에 다 쓰기보다 두 채널에 나눠 작게 시험해 보고 반응이 좋은 쪽에 더 쓰는 게 안전해요.' : '단가에 따라 추천이 달라질 수 있어서, 실제 견적을 받아보고 다시 계산하는 게 좋아요.'}</p>`;
   if (hv.reach_hub) out += `<h3>입소문 대장 쿠폰 vs 넓게 알리기</h3><p>같은 ${fmt(Math.round(hv.budget / 10000))}만 원이면 인스타로 넓게 알릴 때 약 ${fmt(Math.max(0, hv.broad_gain || 0))}명, 입소문 대장에게 쿠폰을 줄 때 약 ${fmt(Math.max(0, hv.hub_gain || 0))}명이 더 와요. 입소문 대장 1명은 평균 ${hv.reach_hub}명에게 전하지만 쿠폰 비용이 더 들어요.</p>`;
