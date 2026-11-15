@@ -665,8 +665,9 @@ STEPS = [  # (키, 이름, 필수 여부, 질문)
 ]
 ss = st.session_state
 ss.setdefault("step", 0)
-ss.setdefault("w", {"idea": "", "dongs": [], "place": {}, "open": None, "close": None, "days": DAYS[:], "rent": 0, "price": 0, "budget": 0})
+ss.setdefault("w", {"idea": "", "dongs": [], "place": {}, "open": None, "close": None, "days": DAYS[:], "rent": 0, "price": 0, "budget": 0, "fixed": 500})
 ss["w"].setdefault("place", {})
+ss["w"].setdefault("fixed", 500)
 w = ss["w"]
 
 
@@ -678,6 +679,7 @@ def to_opts(w):
         "open_days": w["days"] if w["days"] and len(w["days"]) < 7 else None,
         "rent": w["rent"] * 10000 if w["rent"] else None,
         "avg_price": w["price"] or None,
+        "other_fixed_monthly": w["fixed"] * 10000 if w.get("fixed") not in (None, 500) else None,  # 기본 500만 원이면 넘기지 않음
         "budget": w["budget"] * 10000 if w["budget"] else None,
         "store_locations": {dong_map[l]: list(p) for l, p in w.get("place", {}).items() if l in w["dongs"] and l in dong_map} or None,
     }
@@ -697,7 +699,8 @@ def summary(key):
     if key == "days":
         return "매일" if len(w["days"]) == 7 else ("·".join(w["days"]) or "정하지 않음")
     if key == "cost":
-        parts = ([f"월세 {w['rent']:,}만 원"] if w["rent"] else []) + ([f"객단가 {w['price']:,}원"] if w["price"] else [])
+        parts = ([f"월세 {w['rent']:,}만 원"] if w["rent"] else []) + ([f"객단가 {w['price']:,}원"] if w["price"] else []) + \
+                ([f"기타 고정비 {w['fixed']:,}만 원"] if w.get("fixed") not in (None, 500) else [])
         return ", ".join(parts) or "넣지 않음"
     return f"{w['budget']:,}만 원" if w["budget"] else "넣지 않음"
 
@@ -731,7 +734,7 @@ def save_current(key):
     elif key == "days":
         w["days"] = list(ss.get("in_days") or [])
     elif key == "cost":
-        w["rent"], w["price"] = ss.get("in_rent", 0), ss.get("in_price", 0)
+        w["rent"], w["price"], w["fixed"] = ss.get("in_rent", 0), ss.get("in_price", 0), ss.get("in_fixed", 500)
     elif key == "budget":
         w["budget"] = ss.get("in_budget", 0)
 
@@ -857,9 +860,12 @@ if page == "home":
             elif key == "cost":
                 ss.setdefault("in_rent", w["rent"])
                 ss.setdefault("in_price", w["price"])
-                n1, n2 = st.columns(2)
+                ss.setdefault("in_fixed", w.get("fixed", 500))
+                n1, n2, n3 = st.columns(3)
                 n1.number_input("월세 (만 원)", min_value=0, step=10, key="in_rent")
                 n2.number_input("객단가 (원)", min_value=0, step=500, key="in_price")
+                n3.number_input("기타 고정비 (만 원/월)", min_value=0, step=50, key="in_fixed",
+                                help="인건비·관리비·공과금 등. 모르면 500만 원 그대로 두세요")
                 filled = bool(ss.get("in_rent") or ss.get("in_price"))
             elif key == "budget":
                 ss.setdefault("in_budget", w["budget"])
@@ -966,6 +972,8 @@ if page == "result":
         cond.append(f"객단가 {opts['avg_price']:,}원")
     if opts.get("budget"):
         cond.append(f"홍보 {opts['budget'] // 10000:,}만 원")
+    if opts.get("other_fixed_monthly") is not None:
+        cond.append(f"기타 고정비 {int(opts['other_fixed_monthly']) // 10000:,}만 원")
     if opts.get("store_locations"):
         cond.append(f"가게 자리 지정 {len(opts['store_locations'])}곳")
     payload["conditions"] = cond
@@ -974,8 +982,8 @@ elif page == "home":
     payload["idea"] = examples_idea
 
 html = VIEW.read_text(encoding="utf-8").replace("__DATA__", json.dumps(payload, ensure_ascii=False))
-heights = {"home": 520, "result": 2900, "how": 2300}
-mobile_heights = {"home": 1300, "result": 7600, "how": 5200}  # 휴대폰은 칸이 한 줄로 쌓여서 훨씬 길어짐
+heights = {"home": 520, "result": 3500, "how": 2300}
+mobile_heights = {"home": 1300, "result": 8600, "how": 5200}  # 휴대폰은 칸이 한 줄로 쌓여서 훨씬 길어짐
 components.html(html, height=(mobile_heights if MOBILE else heights).get(page, 1200), scrolling=MOBILE)
 
 if AI_LOG and page == "result":
