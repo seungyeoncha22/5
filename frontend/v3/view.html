@@ -304,11 +304,14 @@ function renderResult(code) {
 
   app.innerHTML = `
     <section class="headline">
-      <div><span class="label"><span class="dot"></span>${rank}위 · 후보 ${d.length}곳 중</span><h1>${esc(x.dong)}</h1></div>
+      <div><span class="label"><span class="dot"></span>${rank}위 · 후보 ${d.length}곳 중 (3달째 한 달 손님 기준)</span><h1>${esc(x.dong)}</h1></div>
       <div style="text-align:right"><div class="muted" style="font-size:16px">3달째 한 달 손님</div>
         <div class="num bignum" style="font-size:128px;line-height:.95;font-variant-numeric:proportional-nums">${bigNum(x.monthly)}</div>
-        <div style="font-size:18px;margin-top:8px">${beR(x.breakeven)} · 손님이 가장 많은 주 ${peak}주 차</div></div>
+        <div style="font-size:18px;margin-top:8px">${beR(x.breakeven)} · 손님이 가장 많은 주 ${peak}주 차</div>
+        ${F.promo && (x.detail.weekly_with || []).length ? `<div class="muted" style="font-size:15px;margin-top:6px">추천 홍보까지 하면 3달째 한 달 손님 약 ${fmt(Math.round(x.detail.weekly_with.slice(-4).reduce((p, q) => p + q, 0) * (x.monthly / Math.max(1, x.weekly.slice(-4).reduce((p, q) => p + q, 0)))))}명</div>` : ''}</div>
     </section>
+    ${DATA.target_outside ? `<p class="tip" style="margin-top:16px">가게 설명의 주요 손님(${esc(DATA.target_outside)})은 시뮬레이션 인구(동네 주민)에 없어요. 아래 결과는 이 동네 주민 기준이에요.</p>` : ''}
+    <p style="font-size:16px;margin:16px 0 0">${targetLine(x)}</p>
     <p class="muted" style="font-size:15px;margin:16px 0 0">${esc(DATA.idea)} · ${(DATA.conditions || []).length ? DATA.conditions.map(esc).join(' · ') : '상세 조건 없이 기본 시뮬레이션'}${TG.size ? ` · 주요 손님 ${esc(tgText())}` : ''}</p>
     ${x.summary ? `<p style="font-size:18px;line-height:1.7;max-width:900px;margin:24px 0 0">${esc(toYo(plain(x.summary)))}</p>` : ''}
     <div class="tabs" role="tablist" aria-label="후보 동네">${d.map(v => `<button role="tab" aria-selected="${v.code === x.code}" data-go="${v.code}">${esc(v.dong)}</button>`).join('')}</div>
@@ -331,7 +334,7 @@ function renderResult(code) {
       </section>
       <section class="box cmp" style="padding:0;gap:0" aria-label="동네 비교">
         <span class="label" style="padding:24px 24px 8px"><span class="dot" style="background:#111"></span>Compare</span>
-        ${d.map(v => `<a href="#" data-go="${v.code}" class="${v.code === x.code ? 'on' : ''}"><div style="font-size:20px;font-weight:700">${esc(v.dong)}</div><div class="muted" style="font-size:14px">월 ${fmt(v.monthly)}명 · ${beR(v.breakeven)}</div></a>`).join('')}
+        ${d.map(v => `<a href="#" data-go="${v.code}" class="${v.code === x.code ? 'on' : ''}"><div style="font-size:20px;font-weight:700">${esc(v.dong)}</div><div class="muted" style="font-size:14px">월 ${fmt(v.monthly)}명 · 12주 ${fmt(v.weekly.reduce((p, q) => p + q, 0))}명 · ${beR(v.breakeven)}</div>${(() => { const G0 = mainGroup(v.detail || {}), c0 = (v.detail.group_count || {})[G0]; return c0 ? `<div class="muted" style="font-size:13px">${esc(gName(G0))} ${fmt(c0)}명 중 ${pc((v.detail.group_awareness || {})[G0] || 0)}%가 소식</div>` : ''; })()}</a>`).join('')}
       </section>
       <section class="box span2 clickable" data-detail="curve" tabindex="0" role="button" aria-label="12주 손님 자세히 보기"><span class="label"><span class="dot"></span>12 weeks</span>${curveSVG(x.weekly)}${MORE}</section>
       <section class="box clickable" style="justify-content:space-between" data-detail="promo" tabindex="0" role="button" aria-label="홍보 추천 자세히 보기"><span class="label"><span class="dot" style="background:#111"></span>Promotion${x.promo ? ' · ' + fmt(Math.round(x.promo.budget / 10000)) + '만 원' : ''}</span>
@@ -429,17 +432,22 @@ function planHTML(x) {
   }
   if ((ct['검색'] || 0) >= 0.08) rows.push([1, '오픈 주', '<b>네이버 지도</b> 가게 등록, 첫 손님에게 사진 후기 부탁', '검색해서 찾는 손님', '무료', `검색으로 알게 되는 비율 ${pct(ct['검색'])} · 후기가 쌓일수록 늘어요 · 사례: <a href="${esc(CASES['검색'][0].url)}" target="_blank" rel="noopener">${esc(CASES['검색'][0].name)}</a>`]);
   if ((ct['지나가다'] || 0) >= 0.08) rows.push([1, '오픈 주', '<b>가게 앞</b> 입간판·바깥 메뉴판으로 가격 보이게', '가게 앞을 지나는 사람', '-', `지나가다 들어오는 비율 ${pct(ct['지나가다'])}`]);
-  // 입력한 영업시간·요일이 주요 손님이 오는 때와 맞는지
+  // 입력한 영업시간·요일이 주요 손님이 오는 때와 맞는지 (명령 대신 '확인해 보세요')
   const O = DATA.opts || {}, Rm = (d.reactions || {})[mainGroup(d)] || {}, vt = Rm.visit_time || {};
-  if (vt['평일저녁'] && O.open_hours && O.open_hours[1] < 20 && vt['평일저녁'] >= 0.3)
-    rows.push([0, '오픈 전', `<b>영업시간</b> 평일 마감을 ${O.open_hours[1]}시에서 21시쯤으로`, gName(mainGroup(d)), '-', `평일 저녁에 오겠다는 사람이 ${pc(vt['평일저녁'])}%인데 ${O.open_hours[1]}시에 닫아요`]);
-  const closed = O.open_days ? ['토', '일'].filter(dd => !O.open_days.includes(dd)) : [];
-  if (vt['주말'] && closed.length && vt['주말'] >= 0.3)
-    rows.push([0, '오픈 전', `<b>영업 요일</b> ${closed.join('·')}요일도 열기`, gName(mainGroup(d)), '-', `주말에 오겠다는 사람이 ${pc(vt['주말'])}%인데 ${closed.join('·')}요일에 쉬어요`]);
+  const days = O.open_days || ['월', '화', '수', '목', '금', '토', '일'];
+  const weekdayOpen = days.some(dd => ['월', '화', '수', '목', '금'].includes(dd));
+  if (weekdayOpen && vt['평일저녁'] >= 0.3 && O.open_hours && O.open_hours[1] < 20)
+    rows.push([0, '오픈 전', `<b>영업시간</b> 평일 저녁 수요가 있는지 확인해 보세요 (지금 ${O.open_hours[1]}시 마감)`, gName(mainGroup(d)), '-', `평일 저녁에 오겠다는 응답이 ${pc(vt['평일저녁'])}%예요`]);
+  const closed = ['토', '일'].filter(dd => !days.includes(dd));
+  if (vt['주말'] >= 0.3 && closed.length)
+    rows.push([0, '오픈 전', `<b>영업 요일</b> ${closed.join('·')}요일 수요가 있는지 확인해 보세요`, gName(mainGroup(d)), '-', `주말에 오겠다는 응답이 ${pc(vt['주말'])}%예요`]);
   if (O.avg_price && Rm.price_max) {
-    const under7 = (Rm.price_max['5천이하'] || 0) + (Rm.price_max['5천~7천'] || 0);
-    if (O.avg_price >= 7000 && under7 >= 0.3)
-      rows.push([0, '오픈 전', '<b>가격</b> 6천 원 안쪽 메뉴를 하나 이상', gName(mainGroup(d)), '-', `7천 원 아래까지만 낼 수 있다는 사람이 ${pc(under7)}%예요 (지금 객단가 ${fmt(O.avg_price)}원)`]);
+    const pm = Rm.price_max, p0 = O.avg_price;
+    const can = p0 <= 5000 ? 1 : p0 <= 7000 ? (pm['5천~7천'] || 0) + (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : p0 <= 10000 ? (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : (pm['1만이상'] || 0);
+    if (can < 0.6)
+      rows.push([0, '오픈 전', `<b>가격</b> 더 낮은 가격의 메뉴를 하나 이상 함께 두기`, gName(mainGroup(d)), '-', `객단가 ${fmt(p0)}원까지 낼 수 있다는 응답이 ${pc(can)}%예요`]);
+    else if (p0 < 5000 && !x.breakeven && F.breakeven)
+      rows.push([0, '오픈 전', `<b>가격</b> 지금 가격은 손님이 낼 수 있는 선보다 낮아요`, gName(mainGroup(d)), '-', '손익분기를 넘지 못해서, 가격을 조금 올릴 여유가 있는지 검토해 보세요']);
   }
   if (hubs.length) {
     const comm = {};
@@ -465,7 +473,7 @@ function awarenessCheck(d) {
   const rows = Object.entries(ga).filter(([g0]) => !cnt[g0] || cnt[g0] >= 20);
   if (!rows.length) return null;
   const tot = rows.reduce((a, [g0]) => a + (cnt[g0] || 1), 0);
-  const avg = rows.reduce((a, [g0, v]) => a + v * (cnt[g0] || 1), 0) / tot;
+  const avg = d.overall_awareness ?? rows.reduce((a, [g0, v]) => a + v * (cnt[g0] || 1), 0) / tot;
   rows.sort((a, b) => a[1] - b[1]);
   return { avg, rows, low: rows[0] };
 }
@@ -526,6 +534,17 @@ function plain(t) {
   t = t.replace(/소식이 멈춘 집단\s*(?:은|는)?\s*없음(?:이라|이므로)?/g, '소식이 끊긴 집단은 없어서');
   t = t.replace(/(응답|손님|비중|수요|비율|이유)는/g, (m, w) => w + ({ '응답': '은', '손님': '은', '수요': '는', '비율': '은', '이유': '는', '비중': '은' }[w]));
   t = t.replace(/(\d+)%은/g, '$1%로').replace(/소식이 끊긴 집단은 없어서 어느 집단에서도/g, '어느 집단에서도');
+  t = t.replace(/당근\s?마켓|당근톡|당근\s?커뮤니티/g, '당근').replace(/인스타그램/g, '인스타').replace(/에브리타임/g, '에타');
+  t = t.replace(/\bmoderate\b/gi, '중간').replace(/인터레스트/g, '관심도').replace(/오픈_days|open_days/g, '영업 요일');
+  t = t.replace(/(\d+)\.(\d)\d*%/g, (m, a, b) => Math.round(Number(a + '.' + b)) + '%');
+  t = t.replace(/(\d{1,3}(?:,\d{3})+)\s?원/g, (m, n) => { const v = Number(n.replace(/,/g, '')); return v >= 10000 && v % 10000 === 0 ? `${(v / 10000).toLocaleString('ko-KR')}만 원` : m; });
+  t = t.replace(/(가게 )+가게 성격/g, '가게 성격').replace(/소식 소식/g, '소식').replace(/(\d+(?:\.\d)?)점점/g, '$1점').replace(/\s*진단\s*:\s*$/g, '');
+  t = t.replace(/(\d+)\.(\d)\d+점/g, '$1.$2점');
+  t = t.replace(/(입소문|성격|비율|정도|손님|대장|학생|직장인|주부|자영업|\(기타\)|당근|인스타|맘카페|에타)(와|과|는|은|를|을|가|이|로|으로)(?=[\s,.)]|$)/g, (m, w0, j) => {
+    const last = w0.replace(/[()]/g, '').slice(-1), jong = hasJong(last);
+    const pair = { '와': ['과', '와'], '과': ['과', '와'], '는': ['은', '는'], '은': ['은', '는'], '를': ['을', '를'], '을': ['을', '를'], '가': ['이', '가'], '이': ['이', '가'], '로': ['으로', '로'], '으로': ['으로', '로'] }[j];
+    return w0 + (jong && !(j.includes('로') && isRieul(last)) ? pair[0] : pair[1]);
+  });
   t = t.replace(/꼽았고입니다/g, '꼽았어요').replace(/줄어들고입니다/g, '줄어들어요').replace(/손익분기 주차는 (\d+)입니다/g, '$1주 차부터 매출이 고정비를 넘어요');
   t = t.replace(/\s{2,}/g, ' ');
   return t;
@@ -534,7 +553,7 @@ function plain(t) {
    이유는 설문·시뮬레이션 숫자로 정해진 문장 틀에 넣어 새로 씀 (어느 동네든 같은 방식) */
 const BUCKET = { '5천이하': '5천 원 이하', '5천~7천': '5천~7천 원', '7천~1만': '7천~1만 원', '1만이상': '1만 원 이상' };
 const WHEN = { '평일낮': '평일 낮', '평일저녁': '평일 저녁', '주말': '주말' };
-const gName = g0 => { const [a, j] = String(g0).split('_'); return `${a.replace('이하', ' 이하').replace('이상', ' 이상')} ${j === '기타' ? '' : j}`.trim(); };
+const gName = g0 => { const [a, j] = String(g0).split('_'); return `${a.replace('이하', ' 이하').replace('이상', ' 이상')} ${j === '기타' ? '(기타)' : j}`.trim(); };
 const pc = v => Math.round(Number(v) * 100);
 // 받침에 맞는 조사: 학생은 / 주부는, 학생으로 / 주부로
 const hasJong = w => { const c = String(w).trim().slice(-1).charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 !== 0; };
@@ -548,6 +567,8 @@ function toYo(t) {
   const R = [
     [/했습니다/g, '했어요'], [/었습니다/g, '었어요'], [/았습니다/g, '았어요'], [/였습니다/g, '였어요'],
     [/됩니다/g, '돼요'], [/합니다/g, '해요'], [/줍니다/g, '줘요'], [/봅니다/g, '봐요'], [/납니다/g, '나요'], [/갑니다/g, '가요'], [/옵니다/g, '와요'],
+    [/어렵습니다/g, '어려워요'], [/쉽습니다/g, '쉬워요'], [/빠릅니다/g, '빨라요'], [/다릅니다/g, '달라요'], [/모릅니다/g, '몰라요'],
+    [/보입니다/g, '보여요'], [/보임(?=\.|$)/g, '보여요'], [/아니예요/g, '아니에요'],
     [/쉽니다/g, '쉬어요'], [/큽니다/g, '커요'], [/깁니다/g, '길어요'], [/바랍니다/g, '바라요'],
     // '~했음.', '~높음.' 같은 문장 끝
     [/([았었였졌됐했났갔왔])음(?=\.|$)/g, '$1어요'], [/비쌈(?=\.|$)/g, '비싸요'], [/낮음(?=\.|$)/g, '낮아요'], [/높음(?=\.|$)/g, '높아요'],
@@ -563,7 +584,7 @@ function toYo(t) {
   ];
   for (const [re, to] of R) t = t.replace(re, to);
   // 받침 없는 말 뒤 '이에요' -> '예요'
-  t = t.replace(/%이에요/g, '%예요');
+  t = t.replace(/%이에요/g, '%예요').replace(/어렵어요/g, '어려워요').replace(/보예요/g, '보여요').replace(/아니예요/g, '아니에요');
   t = t.replace(/([가-힣])이에요/g, (m, c) => { const k = c.charCodeAt(0); return (k - 0xAC00) % 28 === 0 ? c + '예요' : m; });
   return t;
 }
@@ -581,9 +602,11 @@ function easyEnd(t) {
 }
 function mainGroup(d) {
   const R = d.reactions || {};
-  const cand = [...TG].filter(g0 => R[g0]);
+  const cand = [...TG].filter(g0 => R[g0] && ((d.group_count || {})[g0] || 0) >= 20);
   if (cand.length) return cand.sort((a, b) => ((d.group_count || {})[b] || 0) - ((d.group_count || {})[a] || 0))[0];
-  return R['20대이하_학생'] ? '20대이하_학생' : Object.keys(R).sort((a, b) => (R[b].interest || 0) - (R[a].interest || 0))[0];
+  const cnt = d.group_count || {};
+  const big = Object.keys(R).filter(g0 => (cnt[g0] || 0) >= 20).sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0))[0];
+  return big || Object.keys(R)[0];
 }
 const REASON_ORDER = [
   ['hours', ['영업시간', '영업', '저녁', '주말', '시간대']],
@@ -661,6 +684,16 @@ function autoFix(x, d) {
   return out;
 }
 
+/* 주요 손님 한 줄: 반경 안 인원, 소식 비율, 경쟁 설명 */
+function targetLine(x) {
+  const d = x.detail || {}, G = mainGroup(d), cnt = d.group_count || {}, ga = d.group_awareness || {};
+  const parts = [];
+  if (G && cnt[G]) parts.push(`${TG.size && TG.has(G) ? '주요 손님' : '기준 집단'} <b>${esc(gName(G))}</b> 반경 안 ${fmt(cnt[G])}명, 100명 중 ${pc(ga[G] || 0)}명꼴로 소식을 들었어요${d.overall_awareness != null ? ` (전체 ${pc(d.overall_awareness)}명)` : ''}`);
+  if (TG.size && ![...TG].some(g0 => (cnt[g0] || 0) >= 20)) parts.push('가게 설명의 주요 손님이 이 동네 반경 안에 20명도 안 돼요');
+  if (d.competition != null && d.competition < 0.6) parts.push(`근처에 비슷한 가게가 많아, 소식을 들은 사람 중 우리 가게를 고르는 비율이 ${pc(d.competition)}% 수준이에요`);
+  return parts.join(' · ');
+}
+
 /* 실제 사례 (기사·공공기관·플랫폼 사례집, 준안 정리) */
 const CASES = {
   '검색': [
@@ -707,12 +740,12 @@ const table = (head, rows, numCols = []) => `<div class="scroll-x"><table><thead
 function detailCurve(x, d) {
   const w = d.weekly || [], peak = w.indexOf(Math.max(...w)) + 1, a = d.assumptions || {};
   let out = `<span class="label"><span class="dot"></span>12 weeks</span><h2 id="detail-title">${esc(x.dong)} 12주 손님 흐름</h2>
-    <p style="margin-top:12px">손님은 ${peak}주 차에 주 ${fmt(w[peak - 1])}명으로 가장 많고, 12주 차에는 주 ${fmt(w[w.length - 1])}명이에요.</p>
+    <p style="margin-top:12px">${peak === w.length ? `손님은 ${w.length}주 차까지 계속 늘어서 주 ${fmt(w[w.length - 1])}명이에요.` : `손님은 ${peak}주 차에 주 ${fmt(w[peak - 1])}명으로 가장 많고, ${w.length}주 차에는 주 ${fmt(w[w.length - 1])}명이에요.`} 12주 동안 모두 ${fmt(w.reduce((p, q) => p + q, 0))}명이에요.</p>
     <h3>주별 손님</h3>${table(['주차', ...w.map((_, i) => (i + 1) + '주')], [['손님', ...w.map(fmt)]], w.map((_, i) => i + 1))}`;
   if (F.breakeven && a.rent && a.avg_price) {
     const fixedWeek = (a.rent + (a.other_fixed_monthly || 0)) / 4.345;
     const need = Math.ceil(fixedWeek / (a.avg_price * (a.gross_margin || 0.6)));
-    out += `<h3>손익분기</h3><p>월세 ${fmt(Math.round(a.rent / 10000))}만 원과 기타 고정비 ${fmt(Math.round((a.other_fixed_monthly || 0) / 10000))}만 원을 주 단위로 나누면 약 ${fmt(Math.round(fixedWeek / 10000))}만 원이에요. 객단가 ${fmt(a.avg_price)}원, 마진율 ${Math.round((a.gross_margin || 0.6) * 100)}%면 <b>주 ${fmt(need)}명</b>이 넘어야 고정비를 넘어요.</p>
+    out += `<h3>손익분기</h3><p>월세 ${fmt(Math.round(a.rent / 10000))}만 원과 기타 고정비 ${fmt(Math.round((a.other_fixed_monthly || 0) / 10000))}만 원을 주 단위로 나누면 약 ${fmt(Math.round(fixedWeek / 10000))}만 원이에요(기타 고정비는 인건비·관리비 등을 가정한 값이에요). 객단가 ${fmt(a.avg_price)}원, 마진율 ${Math.round((a.gross_margin || 0.6) * 100)}%면 <b>주 ${fmt(need)}명</b>이 넘어야 고정비를 넘어요.</p>
       <p>${x.breakeven ? `이 동네는 ${x.breakeven}주 차에 처음 넘어요.` : '12주 안에는 이 선을 넘지 못해요.'}</p>`;
   }
   const rp = d.repromo;
@@ -723,10 +756,16 @@ function detailCurve(x, d) {
     const m = a.gross_margin || 0.6, fixedWeek = (a.rent + (a.other_fixed_monthly || 0)) / 4.345, top = Math.max(...w);
     const needPrice = Math.ceil(fixedWeek / (top * m) / 100) * 100;
     const maxRent = Math.floor((top * a.avg_price * m * 4.345 - (a.other_fixed_monthly || 0)) / 10000);
-    out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)에도 고정비를 넘으려면 주 ${fmt(Math.ceil(fixedWeek / (a.avg_price * m)))}명이 필요해서 12주 안에는 손익분기를 넘지 못해요. 지금 손님 수라면 객단가를 약 ${fmt(needPrice)}원으로 올리거나${maxRent > 0 ? `, 월세가 ${fmt(maxRent)}만 원 아래인 자리여야` : ', 고정비 자체를 줄여야'} 맞아요.</p>`;
+    const need = Math.ceil(fixedWeek / (a.avg_price * m));
+    if (needPrice > a.avg_price * 1.8)
+      out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)도 필요한 손님(주 ${fmt(need)}명)의 ${Math.round(top / need * 100)}%라, 이 자리에서는 가격만으로 해결하기 어려워요. 월세와 고정비가 더 낮은 자리를 찾거나, 가게 규모를 줄이는 쪽을 먼저 검토해 보세요.</p>`;
+    else
+      out += `<p class="tip">손님이 가장 많은 주(${fmt(top)}명)에도 주 ${fmt(need)}명이 필요해서 12주 안에는 손익분기를 넘지 못해요. 지금 손님 수라면 객단가를 약 ${fmt(needPrice)}원으로 올리거나${maxRent > 0 ? `, 월세가 ${fmt(maxRent)}만 원 아래인 자리여야` : ', 고정비 자체를 줄여야'} 맞아요.</p>`;
   }
   if (peak <= 4) out += '<p class="tip">소문이 빨리 퍼지고 빨리 식는 동네예요. 오픈 직후 온 손님에게 재방문 쿠폰을 주는 게 중요해요.</p>';
-  else if (peak >= 8) out += '<p class="tip">천천히 알려지는 동네예요. 초반 몇 주는 손님이 적어도 버틸 수 있게 자금 계획을 잡으세요.</p>';
+  const half = w.findIndex(v => v >= Math.max(...w) / 2) + 1;
+  if (half >= 5) out += '<p class="tip">천천히 알려지는 동네예요. 초반 몇 주는 손님이 적어도 버틸 수 있게 자금 계획을 잡으세요.</p>';
+  else if (half <= 2) out += '<p class="tip">빨리 알려지는 동네예요. 오픈 직후 손님이 몰릴 수 있으니 재료와 인력을 넉넉히 준비하세요.</p>';
   else out += `<p class="tip">${peak}주 차쯤 손님이 가장 많아요. 그 직후가 추가 홍보를 하기 좋은 때예요.</p>`;
   return out;
 }
@@ -738,13 +777,13 @@ function detailPromo(x, d) {
     <p style="margin-top:12px"><b>${esc(promoText(x.promo) || '-')}</b> (${Object.entries(bp.timing || {}).map(([c, t]) => `${esc(nm(c))} ${esc(t)}`).join(', ')})</p>
     <p>12주 동안 손님이 약 ${fmt(bp.visitors_gain)}명 늘고, 만 원당 ${bp.per_10k}명, 광고비의 ${bp.roas}배 매출이에요. ${bp.payback_week ? bp.payback_week + '주 차에 광고비를 돌려받아요.' : '12주 안에는 광고비를 다 돌려받지 못해요.'}</p>
     <p>${!F.breakeven ? '' : bp.breakeven_with && bp.breakeven_without ? `손익분기는 ${bp.breakeven_without}주 차에서 ${bp.breakeven_with}주 차로 당겨져요.` : bp.breakeven_with ? `홍보를 하면 ${bp.breakeven_with}주 차부터 매출이 고정비를 넘어요.` : '홍보를 해도 12주 안에는 매출이 고정비를 넘지 못해요.'}</p>
-    <h3>채널별로 예산 전부를 썼을 때</h3>
+    ${(() => { const spent = Object.values(bp.split || {}).reduce((p, q) => p + q, 0) + (bp.discount_cost || 0); return bp.budget && spent > bp.budget ? `<p class="muted" style="font-size:14px">광고 ${fmt(Math.round(Object.values(bp.split || {}).reduce((p, q) => p + q, 0) / 10000))}만 원에 오픈 할인 비용(약 ${fmt(Math.round((bp.discount_cost || 0) / 10000))}만 원)을 더하면 예산을 조금 넘어요. 할인 기간을 줄이면 맞출 수 있어요.</p>` : ''; })()}<h3>채널별로 예산 전부를 썼을 때</h3>
     <p class="muted" style="font-size:14px">'오픈 전·오픈 주·손님이 줄 때'는 예산 절반을 그 시기에 썼을 때 늘어나는 손님이에요.</p>
     ${table(['채널', '가장 좋은 시기', '오픈 전', '오픈 주', '손님이 줄 때', '12주 동안 더 오는 손님', '만 원당', '광고비 대비 매출'],
-      sc.map(s => [esc(nm(s.name)), esc(({ '오픈전': '오픈 전', '오픈주': '오픈 주', '정체기': '손님이 줄 때' })[s.timing] || s.timing), ...(s.by_timing ? ['오픈전', '오픈주', '정체기'].map(t => fmt(s.by_timing[t])) : ['-', '-', '-']),
+      sc.map(s => Object.assign({}, s, { visitors_gain: Math.max(0, s.visitors_gain || 0), per_10k: Math.max(0, s.per_10k || 0), roas: Math.max(0, s.roas || 0) })).map(s => [esc(nm(s.name)), esc(({ '오픈전': '오픈 전', '오픈주': '오픈 주', '정체기': '손님이 줄 때' })[s.timing] || s.timing), ...(s.by_timing ? ['오픈전', '오픈주', '정체기'].map(t => fmt(s.by_timing[t])) : ['-', '-', '-']),
         fmt(s.visitors_gain) + '명', s.per_10k ?? '-', s.roas ?? '-']), [2, 3, 4, 5, 6, 7])}`;
-  if (bp.robust) out += `<h3>믿을 만한가요</h3><p>광고 단가가 최소~최대 범위에서 바뀌어도 1순위(${esc(nm(bp.robust.top_channel))})가 그대로인 경우가 ${Math.round(bp.robust.same_top_share * 100)}%예요. ${bp.robust.stable ? '단가가 달라져도 추천이 거의 그대로예요.' : '단가에 따라 추천이 달라질 수 있어서, 실제 견적을 받아보고 다시 계산하는 게 좋아요.'}</p>`;
-  if (hv.reach_hub) out += `<h3>입소문 대장 쿠폰 vs 넓게 알리기</h3><p>같은 ${fmt(Math.round(hv.budget / 10000))}만 원이면 인스타로 넓게 알릴 때 약 ${fmt(hv.broad_gain)}명, 입소문 대장에게 쿠폰을 줄 때 약 ${fmt(hv.hub_gain)}명이 더 와요. 입소문 대장 1명은 평균 ${hv.reach_hub}명에게 전하지만 쿠폰 비용이 더 들어요.</p>`;
+  if (bp.robust) out += `<h3>믿을 만한가요</h3><p>광고 단가가 최소~최대 범위에서 바뀌어도 1순위(${esc(nm(bp.robust.top_channel))})가 그대로인 경우가 ${Math.round(bp.robust.same_top_share * 100)}%예요. ${bp.robust.stable ? '단가가 달라져도 추천이 거의 그대로예요.' : bp.robust.same_top_share < 0.5 ? '<b>단가에 따라 1순위가 자주 바뀌어요.</b> 한 채널에 다 쓰기보다 두 채널에 나눠 작게 시험해 보고 반응이 좋은 쪽에 더 쓰는 게 안전해요.' : '단가에 따라 추천이 달라질 수 있어서, 실제 견적을 받아보고 다시 계산하는 게 좋아요.'}</p>`;
+  if (hv.reach_hub) out += `<h3>입소문 대장 쿠폰 vs 넓게 알리기</h3><p>같은 ${fmt(Math.round(hv.budget / 10000))}만 원이면 인스타로 넓게 알릴 때 약 ${fmt(Math.max(0, hv.broad_gain || 0))}명, 입소문 대장에게 쿠폰을 줄 때 약 ${fmt(Math.max(0, hv.hub_gain || 0))}명이 더 와요. 입소문 대장 1명은 평균 ${hv.reach_hub}명에게 전하지만 쿠폰 비용이 더 들어요.</p>`;
   out += `<p class="muted" style="margin-top:24px;font-size:14px">광고 효과는 소상공인 평균 광고 수익률(광고비의 약 2~4배 매출)에 맞춘 가정이라, 실제 견적과 함께 참고해 주세요.</p>`;
   return out;
 }
@@ -757,7 +796,7 @@ function detailFix(x, d) {
     if (af.length) out += `<h3>이렇게 고쳐보세요</h3>${af.map(p0 => `<p style="margin:0 0 16px">${p0}</p>`).join('')}`;
   }
   if (d.prescriptions.length) out += `<h3>소식이 덜 닿은 집단</h3>${table(['집단', '소식이 닿은 비율', '전체 평균', '안 가는 이유', '추천 채널', '제안'],
-    d.prescriptions.map(p => [g(p.group), pct(p.awareness), pct(p.overall_awareness), esc(p.reason_type), esc(nm(p.channel)), esc(plain(p.offer))]), [1, 2])}`;
+    d.prescriptions.filter(p => !(d.group_count || {})[p.group] || d.group_count[p.group] >= 20).map(p => [g(p.group), pct((d.group_awareness || {})[p.group] ?? p.awareness), pct(d.overall_awareness ?? p.overall_awareness), esc(p.reason_type), esc(nm(p.channel)), esc(plain(p.offer))]), [1, 2])}`;
   if (d.diagnosis) {
     const parts = d.diagnosis.split(/\[([^\]]+)\]/).filter(t => t.trim());
     const sec = [];
@@ -804,8 +843,8 @@ function detailChannel(x, d) {
     out += '<h3>이렇게 해보세요</h3>';
     for (const [grp, v] of low) {
       const top = Object.entries(cs[grp] || {}).sort((a, b) => b[1] - a[1])[0];
-      const avgA = Object.values(ga).reduce((p, q) => p + q, 0) / (Object.values(ga).length || 1);
-      out += `<p class="tip"><b>${eun(g(grp))}</b> 100명 중 ${pc(v)}명꼴로 소식을 들었어요${v < avgA ? ` (전체 평균 ${pc(avgA)}명보다 적어요)` : ` (전체 평균 ${pc(avgA)}명과 비슷하거나 많아요)`}.${top ? ` 주로 <b>${esc(ro(CH[top[0]] || top[0]))}</b> 알게 되니, 이 경로부터 챙기면 좋아요.` : ''}</p>`;
+      const avgA = d.overall_awareness ?? Object.values(ga).reduce((p, q) => p + q, 0) / (Object.values(ga).length || 1);
+      out += `<p class="tip"><b>${eun(g(grp))}</b> 100명 중 ${pc(v)}명꼴로 소식을 들었어요${pc(v) < pc(avgA) ? ` (전체 평균 ${pc(avgA)}명보다 적어요)` : pc(v) === pc(avgA) ? ` (전체 평균과 비슷해요)` : ` (전체 평균 ${pc(avgA)}명보다 많아요)`}.${top ? ` 주로 <b>${esc(ro(CH[top[0]] || top[0]))}</b> 알게 되니, 이 경로부터 챙기면 좋아요.` : ''}</p>`;
     }
   }
   return out;
