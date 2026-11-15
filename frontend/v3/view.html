@@ -669,7 +669,7 @@ function detailPromo(x, d) {
 
 function detailFix(x, d) {
   let out = `<span class="label"><span class="dot" style="background:#111"></span>Fix</span><h2 id="detail-title">무엇을 바꾸면 좋을까</h2>`;
-  if (x.revision) out += `<h3>고친 아이디어</h3><p><b>${esc(easyEnd(plain(x.revision)))}</b></p>${(d.revision_plain && d.revision_plain.length) ? d.revision_plain.map(p0 => `<p style="margin:0 0 16px">${esc(p0)}</p>`).join('') : (() => { const used = new Set(); return d.revision_changes.map(c => changeItem(c, x, d, used)).join(''); })()}`;
+  if (x.revision) out += `<h3>고친 아이디어</h3><p><b>${esc(easyEnd(plain(x.revision)))}</b></p>${(d.revision_plain && d.revision_plain.length) ? d.revision_plain.map(p0 => `<p style="margin:0 0 16px">${esc(String(p0).replace(/(\d+(?:\.\d+)?)%/g, (m, v) => Math.round(Number(v)) + '%'))}</p>`).join('') : (() => { const used = new Set(); return d.revision_changes.map(c => changeItem(c, x, d, used)).join(''); })()}`;
   if (d.prescriptions.length) out += `<h3>소식이 덜 닿은 집단</h3>${table(['집단', '소식이 닿은 비율', '전체 평균', '안 가는 이유', '추천 채널', '제안'],
     d.prescriptions.map(p => [g(p.group), pct(p.awareness), pct(p.overall_awareness), esc(p.reason_type), esc(nm(p.channel)), esc(plain(p.offer))]), [1, 2])}`;
   if (d.diagnosis) {
