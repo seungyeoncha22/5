@@ -331,7 +331,9 @@ def run_engine(codes, opts, idea):
     cmd = [sys.executable, str(ROOT / "engine" / "simulate.py"), "--data", f"runs/{key}", "--dongs", *codes]
     if not opts.get("budget"):
         cmd.append("--no-promo")
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=900)
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")  # 윈도우에서 한글 출력이 깨져 오류 나는 것 방지
+    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          env=env, timeout=900)
     if proc.returncode != 0:
         return None, (proc.stderr or proc.stdout)[-1500:]
     return [read_json(folder / f"result_{c}.json") for c in codes], None
