@@ -314,6 +314,8 @@ def plan(m):
                  "note": f"첫 {pw['discount_weeks']}주 {int(pw['discount_rate'] * 100)}% 할인, 비용 = 할인해준 금액"})
 
     # 3) 예산 배분 (할인 포함/미포함 중 손님이 더 많은 쪽)
+    # '허브쿠폰'(소문 잘 내는 손님층 공략)은 사장님이 실제로 고르기 어려워 추천 배분에서는 뺌. 비교(hub_vs_broad)에는 그대로 씀
+    curves = {c: v for c, v in curves.items() if c not in pw.get("exclude_from_plan", ["허브쿠폰"])}
     step = max(B * pw["step_frac"], 1.0)
 
     def finish(alloc, with_disc):
