@@ -480,6 +480,7 @@ function planHTML(x) {
   // 영업시간·요일 조언: 앱이 가게 성격과 설문으로 계산한 것 (줄이라는 말은 없음)
   const O = DATA.opts || {}, Rm = (d.reactions || {})[mainGroup(d)] || {};
   (d.hours_advice || []).forEach(h => rows.push([0, '오픈 전', `<b>영업시간</b> ${esc(h.what)}`, gName(mainGroup(d)), '-', esc(h.why)]));
+  if (d.location) rows.push([0, '오픈 전', `<b>입지</b> ${esc(d.location.advice)}`, gName(mainGroup(d)), '-', esc(d.location.label)]);
   if (O.avg_price && Rm.price_max) {
     const pm = Rm.price_max, p0 = O.avg_price;
     const can = p0 <= 5000 ? 1 : p0 <= 7000 ? (pm['5천~7천'] || 0) + (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : p0 <= 10000 ? (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : (pm['1만이상'] || 0);
@@ -492,9 +493,7 @@ function planHTML(x) {
       rows.push([0, '오픈 전', `<b>가격</b> 지금 가격은 손님이 낼 수 있는 선보다 낮아요`, gName(mainGroup(d)), '-', '손익분기를 넘지 못해서, 가격을 조금 올릴 여유가 있는지 검토해 보세요']);
   }
   if (hubs.length) {
-    const comm = {};
-    hubs.forEach(h => (h.community || []).forEach(c => comm[c] = (comm[c] || 0) + 1));
-    const topC = Object.entries(comm).sort((a, b) => b[1] - a[1])[0];
+    const topC = d.hub_community ? [d.hub_community.name] : null;
     const hubT = TG.size && TG.has(hubs[0].group);
     rows.push([2, '1~2주 차', `<b>입소문 대장</b>에게 시식·첫 방문 쿠폰${topC ? `, ${esc(topC[0])}에 후기 부탁` : ''}`, hubT ? g(hubs[0].group) : `이 동네 입소문 대장 (주로 ${g(hubs[0].group)})`, '-', ((d.hub_vs_broad || {}).reach_hub ? `입소문 대장 1명이 평균 ${d.hub_vs_broad.reach_hub}명에게 전해요` : `가장 많이 전한 사람은 ${fmt(hubs[0].reach)}명에게 소식을 퍼뜨렸어요`)]);
   }
@@ -713,7 +712,8 @@ function autoFix(x, d) {
     const vt = Object.entries(r.visit_time).sort((a, b) => b[1] - a[1]);
     out.push(`<b>문 여는 시간은 ${WHEN[vt[0][0]] || vt[0][0]}을 가장 중요하게 잡아요.</b> ${who}에게 언제 올 것 같냐고 물었더니 ${vt.map(([k, v]) => `${WHEN[k] || k} ${pc(v)}%`).join(', ')}였어요. 손님이 많이 오는 때에 문을 열어 두는 게 좋아요.`);
   }
-  if (r.reason_text && !(r.reason_type === '가격' && priceOK(G, d))) {
+  if (d.location) out.push(`<b>${esc(yo(d.location.label))}.</b> ${esc(d.location.text)}. ${esc(d.location.advice)}.`);
+  if (r.reason_text && !(r.reason_type === '가격' && priceOK(G, d)) && !(r.reason_type === '거리' && d.location && d.location.kind !== '외진 곳')) {
     out.push(`<b>손님이 안 오는 이유부터 줄여요.</b> ${eun(who)} '${String(r.reason_text).replace(/[.。]+$/, '')}'라고 답했어요.${r.revisit ? ` 한 번 와 본 사람이 다시 오고 싶은 마음은 5점 만점에 ${sc1(r.revisit)}점이라, 첫 방문만 넘기면 단골이 되기 쉬워요.` : ''}`);
   }
   const aw = (d.group_awareness || {})[G], mix = Number((d.day_age_mix || {})['20대이하'] || 0);
@@ -751,6 +751,7 @@ function targetLine(x) {
   const sub = ((d.reactions || {})[G] || {}).sub_used;
   if (G && cnt[G]) parts.push(`${TG.size && TG.has(G) ? '주요 손님' : '기준 집단'} <b>${esc(gName(G))}</b>${sub ? ` (설문은 ${sub} 응답 기준)` : ''} 반경 안 ${fmt(cnt[G])}명, 100명 중 ${pc(ga[G] || 0)}명꼴로 소식을 들었어요${d.overall_awareness != null ? ` (전체 ${pc(d.overall_awareness)}명)` : ''}`);
   if (TG.size && ![...TG].some(g0 => (cnt[g0] || 0) >= 20)) parts.push('가게 설명의 주요 손님이 이 동네 반경 안에 20명도 안 돼요');
+  if (d.location) parts.push(`입지: <b>${esc(d.location.label)}</b>`);
   if (d.competition != null && d.competition < 0.6) parts.push(`근처에 비슷한 가게가 많아, 소식을 들은 사람 중 우리 가게를 고르는 비율이 ${pc(d.competition)}% 수준이에요`);
   return parts.join(' · ');
 }
@@ -956,7 +957,7 @@ function detailFix(x, d) {
     if (af.length) out += `<h3>이렇게 고쳐보세요</h3>${af.map(p0 => `<p style="margin:0 0 16px">${p0}</p>`).join('')}`;
   }
   if (d.prescriptions.length) out += `<h3>소식이 덜 닿은 집단</h3>${table(['집단', '소식이 닿은 비율', '전체 평균', '안 가는 이유', '추천 채널', '제안'],
-    d.prescriptions.filter(p => !(d.group_count || {})[p.group] || d.group_count[p.group] >= 20).map(p => [g(p.group), pct((d.group_awareness || {})[p.group] ?? p.awareness), pct(d.overall_awareness ?? p.overall_awareness), esc(p.reason_type === '가격' && priceOK(p.group, d) ? '가격 아님 (이 가격은 괜찮아요)' : p.reason_type), esc(nm(p.channel)), esc(p.reason_type === '가격' && priceOK(p.group, d) ? '이 집단에게 소식을 더 알리기 (첫 방문 쿠폰·후기)' : plain(p.offer))]), [1, 2])}`;
+    d.prescriptions.filter(p => !(d.group_count || {})[p.group] || d.group_count[p.group] >= 20).map(p => [g(p.group), pct((d.group_awareness || {})[p.group] ?? p.awareness), pct(d.overall_awareness ?? p.overall_awareness), esc(p.reason_type === '가격' && priceOK(p.group, d) ? '가격 아님 (이 가격은 괜찮아요)' : p.reason_type === '거리' && d.location && d.location.kind !== '외진 곳' ? '거리 아님 (' + d.location.label + ')' : p.reason_type), esc(nm(p.channel)), esc((p.reason_type === '가격' && priceOK(p.group, d)) || (p.reason_type === '거리' && d.location && d.location.kind !== '외진 곳') ? '이 집단에게 소식을 더 알리기 (첫 방문 쿠폰·후기)' : plain(p.offer))]), [1, 2])}`;
   if (d.diagnosis) {
     const parts = d.diagnosis.split(/\[([^\]]+)\]/).filter(t => t.trim());
     const sec = [];
@@ -1022,7 +1023,9 @@ function detailHub(x, d) {
       hubs.map(h => [g(h.group), esc(h.dong), fmt(h.direct) + '명', fmt(h.reach) + '명', (h.week + 1) + '주 차', esc((h.community || []).join(', ') || '-')]), [2, 3])}
     <h3>이렇게 해보세요</h3>`;
   if (topGroup) out += `<p class="tip">입소문 대장 중엔 <b>${g(topGroup[0])}</b>이 가장 많아요. 오픈 첫 주에 이 집단에게 시식이나 첫 방문 쿠폰을 주면 소문이 빨리 퍼져요.</p>`;
-  if (topComm) out += `<p class="tip">입소문 대장들이 가장 많이 쓰는 커뮤니티는 <b>${esc(yo(topComm[0]))}</b>. 여기에 첫 후기가 올라오게 하면 좋아요.</p>`;
+  const hc = d.hub_community;
+  if (hc) out += `<p class="tip">첫 후기를 부탁하기 좋은 곳은 <b>${esc(yo(hc.name))}</b>. ${esc(hc.why)}.${hc.everyone ? ' (당근은 대부분이 써서 어디서나 기본으로 챙기면 좋아요)' : ''}</p>`;
+  else if (topComm) out += `<p class="tip">입소문 대장들이 많이 쓰는 커뮤니티는 <b>${esc(yo(topComm[0]))}</b>. 여기에 첫 후기가 올라오게 하면 좋아요.</p>`;
   return out;
 }
 
