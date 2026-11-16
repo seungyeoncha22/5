@@ -267,7 +267,9 @@ def hub_community(r, R, G):
     groups = [g for g in R if cnt.get(g, 0) >= 20] or list(R)
     base = {c: sum(c in (R[g].get("community") or []) for g in groups) / max(1, len(groups)) for c in COMM_NAMES}
     hub_share = {c: sum(c in (h.get("community") or []) for h in hubs) / len(hubs) for c in COMM_NAMES}
-    main_c = R.get(G, {}).get("community") or []
+    main_c = [c for c in (R.get(G, {}).get("community") or []) if c != "없음"]
+    if not main_c:  # 주요 손님이 온라인 커뮤니티를 거의 안 씀 (어르신 등)
+        return {"name": "이웃 입소문", "why": "주요 손님은 온라인 커뮤니티를 거의 쓰지 않아서, 가게에서 단골에게 이웃을 데려와 달라고 부탁하는 식으로 얼굴 보고 전하는 게 좋아요", "everyone": False, "offline": True}
     main_share = (r.get("channel_share") or {}).get(G, {})
     key = {"당근": "당근", "인스타": "인스타", "맘카페": "맘카페", "에타": "에타"}
     # 주요 손님이 쓰는 곳 우선, 그중에서도 모두가 쓰는 곳(당근)보다 이 손님에게 특별한 곳(맘카페·에타 등)을 앞에
@@ -279,8 +281,14 @@ def hub_community(r, R, G):
     if G.startswith("20대이하") and "인스타" in COMM_NAMES:  # 20대 손님은 인스타로
         best = "인스타"
     n = round(hub_share[best] * len(hubs))
-    why = (f"소문을 많이 낸 {len(hubs)}명 중 {n}명이 쓰고" if n else "소문을 많이 낸 사람들보다는") + \
-          (", 주요 손님도 많이 쓰는 곳이에요" if best in main_c else (", 이 동네에서 소문을 많이 낸 사람들이 유독 많이 써요" if hub_share[best] > base[best] else "에요"))
+    parts = []
+    if n:
+        parts.append(f"소문을 많이 낸 {len(hubs)}명 중 {n}명이 써요")
+    if best in main_c:
+        parts.append("주요 손님도 많이 쓰는 곳이에요")
+    elif n and hub_share[best] > base[best]:
+        parts.append("이 동네에서 소문을 많이 낸 사람들이 유독 많이 써요")
+    why = ". ".join(parts) or "주요 손님이 쓰는 곳이에요"
     return {"name": best, "why": why, "everyone": best == "당근" and base.get("당근", 0) >= 0.8}
 
 
