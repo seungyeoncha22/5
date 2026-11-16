@@ -469,7 +469,7 @@ function planHTML(x) {
     if (bp.open_discount) {
       const price = pres.find(p => p.reason_type === '가격');
       const R0 = (d.reactions || {})[mainGroup(d)] || {};
-      const dWho = R0.reason_type === '가격' ? `${gName(mainGroup(d))} (안 가는 이유 1위가 가격)` : `첫 방문을 망설이는 ${gName(mainGroup(d))}`;
+      const dWho = R0.reason_type === '가격' && !priceOK(mainGroup(d), d) ? `${gName(mainGroup(d))} (안 가는 이유 1위가 가격)` : `첫 방문을 망설이는 ${gName(mainGroup(d))}`;
       rows.push([1, '오픈 주', '<b>오픈 할인</b> 첫 2주 20%', dWho, `약 ${won(bp.discount_cost || 0)}`, `할인해준 금액만큼 비용 · 사례: <a href="${esc(CASES['오픈할인'][0].url)}" target="_blank" rel="noopener">${esc(CASES['오픈할인'][0].name)}</a>`]);
     }
   } else {
@@ -477,19 +477,16 @@ function planHTML(x) {
   }
   if ((ct['검색'] || 0) >= 0.08) rows.push([1, '오픈 주', '<b>네이버 지도</b> 가게 등록, 첫 손님에게 사진 후기 부탁', '검색해서 찾는 손님', '무료', `검색으로 알게 되는 비율 ${pct(ct['검색'])} · 후기가 쌓일수록 늘어요 · 사례: <a href="${esc(CASES['검색'][0].url)}" target="_blank" rel="noopener">${esc(CASES['검색'][0].name)}</a>`]);
   if ((ct['지나가다'] || 0) >= 0.08) rows.push([1, '오픈 주', '<b>가게 앞</b> 입간판·바깥 메뉴판으로 가격 보이게', '가게 앞을 지나는 사람', '-', `지나가다 들어오는 비율 ${pct(ct['지나가다'])}`]);
-  // 입력한 영업시간·요일이 주요 손님이 오는 때와 맞는지 (명령 대신 '확인해 보세요')
-  const O = DATA.opts || {}, Rm = (d.reactions || {})[mainGroup(d)] || {}, vt = Rm.visit_time || {};
-  const days = O.open_days || ['월', '화', '수', '목', '금', '토', '일'];
-  const weekdayOpen = days.some(dd => ['월', '화', '수', '목', '금'].includes(dd));
-  if (weekdayOpen && vt['평일저녁'] >= 0.3 && O.open_hours && O.open_hours[1] < 20)
-    rows.push([0, '오픈 전', `<b>영업시간</b> 평일 저녁 수요가 있는지 확인해 보세요 (지금 ${O.open_hours[1]}시 마감)`, gName(mainGroup(d)), '-', `평일 저녁에 오겠다는 응답이 ${pc(vt['평일저녁'])}%예요`]);
-  const closed = ['토', '일'].filter(dd => !days.includes(dd));
-  if (vt['주말'] >= 0.3 && closed.length)
-    rows.push([0, '오픈 전', `<b>영업 요일</b> ${closed.join('·')}요일 수요가 있는지 확인해 보세요`, gName(mainGroup(d)), '-', `주말에 오겠다는 응답이 ${pc(vt['주말'])}%예요`]);
+  // 영업시간·요일 조언: 앱이 가게 성격과 설문으로 계산한 것 (줄이라는 말은 없음)
+  const O = DATA.opts || {}, Rm = (d.reactions || {})[mainGroup(d)] || {};
+  (d.hours_advice || []).forEach(h => rows.push([0, '오픈 전', `<b>영업시간</b> ${esc(h.what)}`, gName(mainGroup(d)), '-', esc(h.why)]));
   if (O.avg_price && Rm.price_max) {
     const pm = Rm.price_max, p0 = O.avg_price;
     const can = p0 <= 5000 ? 1 : p0 <= 7000 ? (pm['5천~7천'] || 0) + (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : p0 <= 10000 ? (pm['7천~1만'] || 0) + (pm['1만이상'] || 0) : (pm['1만이상'] || 0);
-    if (can < 0.6)
+    const C0 = DATA.price_ceil || {}, ceil0 = C0[mainGroup(d)] || C0[String(mainGroup(d)).split('_')[0]] || 6000;
+    if (DATA.cheap && p0 > ceil0)
+      rows.push([0, '오픈 전', `<b>가격</b> 저가 가게라면 대표 메뉴를 ${fmt(ceil0)}원 안쪽으로`, gName(mainGroup(d)), '-', `이 손님들이 '싸다'고 느끼는 선이 ${fmt(ceil0)}원쯤인데 지금 객단가는 ${fmt(p0)}원이에요`]);
+    else if (!priceOK(mainGroup(d), d))
       rows.push([0, '오픈 전', `<b>가격</b> 더 낮은 가격의 메뉴를 하나 이상 함께 두기`, gName(mainGroup(d)), '-', `객단가 ${fmt(p0)}원까지 낼 수 있다는 응답이 ${pc(can)}%예요`]);
     else if ((() => { const order = ['5천이하', '5천~7천', '7천~1만', '1만이상']; const pi = p0 <= 5000 ? 0 : p0 <= 7000 ? 1 : p0 <= 10000 ? 2 : 3; const ti = order.indexOf(Object.entries(pm).sort((a2, b2) => b2[1] - a2[1])[0][0]); return pi < ti; })() && !x.breakeven && F.breakeven)
       rows.push([0, '오픈 전', `<b>가격</b> 지금 가격은 손님이 낼 수 있는 선보다 낮아요`, gName(mainGroup(d)), '-', '손익분기를 넘지 못해서, 가격을 조금 올릴 여유가 있는지 검토해 보세요']);
@@ -710,13 +707,13 @@ function autoFix(x, d) {
   if (r.price_max) {
     const pm = Object.entries(r.price_max).sort((a, b) => b[1] - a[1]);
     const [k1, v1] = pm[0], [k2, v2] = pm[1] || [];
-    out.push(`<b>메뉴 가격은 ${BUCKET[k1] || k1}대를 중심으로${k2 ? `, ${BUCKET[k2] || k2}대도 함께` : ''} 두는 게 좋아요.</b> 주요 손님인 ${who}에게 대표 메뉴에 얼마까지 낼 수 있냐고 물었더니 ${BUCKET[k1] || k1}까지라는 사람이 ${pc(v1)}%${k2 ? `, ${BUCKET[k2] || k2}까지라는 사람이 ${pc(v2)}%` : ''}였어요.${r.reason_type === '가격' ? ' 가지 않는 가장 큰 이유도 가격이라, 부담 없는 선택지가 꼭 있어야 해요.' : ''}`);
+    out.push(`<b>메뉴 가격은 ${BUCKET[k1] || k1}대를 중심으로${k2 ? `, ${BUCKET[k2] || k2}대도 함께` : ''} 두는 게 좋아요.</b> 주요 손님인 ${who}에게 대표 메뉴에 얼마까지 낼 수 있냐고 물었더니 ${BUCKET[k1] || k1}까지라는 사람이 ${pc(v1)}%${k2 ? `, ${BUCKET[k2] || k2}까지라는 사람이 ${pc(v2)}%` : ''}였어요.${r.reason_type === '가격' && !priceOK(G, d) ? ' 가지 않는 가장 큰 이유도 가격이라, 부담 없는 선택지가 꼭 있어야 해요.' : DATA.cheap ? ' 저렴한 가격이 이 가게의 강점이라, 가격을 간판과 메뉴판에 크게 보여주세요.' : ' 지금 가격이면 가격은 큰 걸림돌이 아니에요.'}`);
   }
   if (r.visit_time) {
     const vt = Object.entries(r.visit_time).sort((a, b) => b[1] - a[1]);
     out.push(`<b>문 여는 시간은 ${WHEN[vt[0][0]] || vt[0][0]}을 가장 중요하게 잡아요.</b> ${who}에게 언제 올 것 같냐고 물었더니 ${vt.map(([k, v]) => `${WHEN[k] || k} ${pc(v)}%`).join(', ')}였어요. 손님이 많이 오는 때에 문을 열어 두는 게 좋아요.`);
   }
-  if (r.reason_text) {
+  if (r.reason_text && !(r.reason_type === '가격' && priceOK(G, d))) {
     out.push(`<b>손님이 안 오는 이유부터 줄여요.</b> ${eun(who)} '${String(r.reason_text).replace(/[.。]+$/, '')}'라고 답했어요.${r.revisit ? ` 한 번 와 본 사람이 다시 오고 싶은 마음은 5점 만점에 ${sc1(r.revisit)}점이라, 첫 방문만 넘기면 단골이 되기 쉬워요.` : ''}`);
   }
   const aw = (d.group_awareness || {})[G], mix = Number((d.day_age_mix || {})['20대이하'] || 0);
@@ -731,11 +728,28 @@ function autoFix(x, d) {
   return out;
 }
 
+/* 가격 판단 (앱과 같은 규칙): 나이대별로 괜찮은 가격 이하이거나 설문에서 60% 이상이 낼 수 있으면 걸림돌 아님 */
+function canPay(p, pm) {
+  pm = pm || {};
+  if (p <= 5000) return 1;
+  if (p <= 7000) return (pm['5천~7천'] || 0) + (pm['7천~1만'] || 0) + (pm['1만이상'] || 0);
+  if (p <= 10000) return (pm['7천~1만'] || 0) + (pm['1만이상'] || 0);
+  return pm['1만이상'] || 0;
+}
+function priceOK(g0, d) {
+  const p = (DATA.opts || {}).avg_price || ((d || {}).assumptions || {}).avg_price;
+  if (!p) return true;
+  const C = DATA.price_ceil || {}, ceil = C[g0] || C[String(g0).split('_')[0]] || 6000;
+  const pm = (((d || {}).reactions || {})[g0] || {}).price_max;
+  return p <= ceil || canPay(p / (DATA.price_mult || 1), pm) >= 0.6;
+}
+
 /* 주요 손님 한 줄: 반경 안 인원, 소식 비율, 경쟁 설명 */
 function targetLine(x) {
   const d = x.detail || {}, G = mainGroup(d), cnt = d.group_count || {}, ga = d.group_awareness || {};
   const parts = [];
-  if (G && cnt[G]) parts.push(`${TG.size && TG.has(G) ? '주요 손님' : '기준 집단'} <b>${esc(gName(G))}</b> 반경 안 ${fmt(cnt[G])}명, 100명 중 ${pc(ga[G] || 0)}명꼴로 소식을 들었어요${d.overall_awareness != null ? ` (전체 ${pc(d.overall_awareness)}명)` : ''}`);
+  const sub = ((d.reactions || {})[G] || {}).sub_used;
+  if (G && cnt[G]) parts.push(`${TG.size && TG.has(G) ? '주요 손님' : '기준 집단'} <b>${esc(gName(G))}</b>${sub ? ` (설문은 ${sub} 응답 기준)` : ''} 반경 안 ${fmt(cnt[G])}명, 100명 중 ${pc(ga[G] || 0)}명꼴로 소식을 들었어요${d.overall_awareness != null ? ` (전체 ${pc(d.overall_awareness)}명)` : ''}`);
   if (TG.size && ![...TG].some(g0 => (cnt[g0] || 0) >= 20)) parts.push('가게 설명의 주요 손님이 이 동네 반경 안에 20명도 안 돼요');
   if (d.competition != null && d.competition < 0.6) parts.push(`근처에 비슷한 가게가 많아, 소식을 들은 사람 중 우리 가게를 고르는 비율이 ${pc(d.competition)}% 수준이에요`);
   return parts.join(' · ');
@@ -942,7 +956,7 @@ function detailFix(x, d) {
     if (af.length) out += `<h3>이렇게 고쳐보세요</h3>${af.map(p0 => `<p style="margin:0 0 16px">${p0}</p>`).join('')}`;
   }
   if (d.prescriptions.length) out += `<h3>소식이 덜 닿은 집단</h3>${table(['집단', '소식이 닿은 비율', '전체 평균', '안 가는 이유', '추천 채널', '제안'],
-    d.prescriptions.filter(p => !(d.group_count || {})[p.group] || d.group_count[p.group] >= 20).map(p => [g(p.group), pct((d.group_awareness || {})[p.group] ?? p.awareness), pct(d.overall_awareness ?? p.overall_awareness), esc(p.reason_type), esc(nm(p.channel)), esc(plain(p.offer))]), [1, 2])}`;
+    d.prescriptions.filter(p => !(d.group_count || {})[p.group] || d.group_count[p.group] >= 20).map(p => [g(p.group), pct((d.group_awareness || {})[p.group] ?? p.awareness), pct(d.overall_awareness ?? p.overall_awareness), esc(p.reason_type === '가격' && priceOK(p.group, d) ? '가격 아님 (이 가격은 괜찮아요)' : p.reason_type), esc(nm(p.channel)), esc(p.reason_type === '가격' && priceOK(p.group, d) ? '이 집단에게 소식을 더 알리기 (첫 방문 쿠폰·후기)' : plain(p.offer))]), [1, 2])}`;
   if (d.diagnosis) {
     const parts = d.diagnosis.split(/\[([^\]]+)\]/).filter(t => t.trim());
     const sec = [];

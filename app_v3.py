@@ -278,7 +278,7 @@ def build_dong(r, steps_per_week, idea=None):
             "revision_source": "file" if file_rev else ("ai" if r.get("ai_revision") else None),
             "overall_awareness": overall, "competition": r.get("competition_factor"),
             "weekly_with": (r.get("budget_plan") or {}).get("weekly_with"),
-            "reactions": load_reactions(survey_type(idea)), "day_age_mix": r.get("day_age_mix") or {}, "stopped_at": r.get("stopped_at") or [],
+            "reactions": reactions_for(survey_type(idea), idea), "day_age_mix": r.get("day_age_mix") or {}, "stopped_at": r.get("stopped_at") or [],
             "demand": r.get("visitors_demand"), "visitors": r.get("visitors"), "breakeven": r.get("breakeven_week"),
         },
     }
@@ -302,6 +302,27 @@ def survey_type(idea):
     if scored and scored[0][0] > 0 and (TYPE_DIR / f"{scored[0][1]}.json").exists():
         return scored[0][1]
     return None
+
+
+UNIV_WORDS = ["대학생", "대학가", "대학교", "캠퍼스", "20대", "카공"]
+TEEN_WORDS = ["10대", "고등학생", "중학생", "청소년", "학원", "수험생"]
+
+
+def student_age(idea):
+    """가게 설명이 10대 학생을 노리는지, 20대 대학생을 노리는지"""
+    t = idea or ""
+    teen, univ = any(w in t for w in TEEN_WORDS), any(w in t for w in UNIV_WORDS)
+    return "10대" if teen and not univ else ("20대" if univ and not teen else None)
+
+
+def reactions_for(rtype, idea):
+    """'20대 이하 학생' 응답을 가게 설명에 맞는 나이(10대/20대)로 바꿔서 화면·AI에 씀 (엔진은 합친 값 그대로)"""
+    R = dict(load_reactions(rtype))
+    who = student_age(idea)
+    g = R.get("20대이하_학생")
+    if who and g and (g.get("sub") or {}).get(who, {}).get("n", 0) >= 5:
+        R["20대이하_학생"] = {**g, **g["sub"][who], "group": "20대이하_학생", "sub_used": who}
+    return R
 
 
 @st.cache_data
@@ -375,7 +396,7 @@ def loading_html(n, title=None, sub=None):
 
 # ---------- AI 진단·수정안 (OpenAI 키가 있을 때만, 없으면 건너뜀) ----------
 AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
-AI_STYLE = "v6"  # 아래 규칙을 바꾸면 이 값을 올려서 예전 진단을 다시 만들게
+AI_STYLE = "v9"  # 아래 규칙을 바꾸면 이 값을 올려서 예전 진단을 다시 만들게
 STYLE_RULES = """
 
 [말투와 쉬운 말 — 위 규칙보다 우선]
@@ -391,7 +412,7 @@ STYLE_RULES = """
 - '동네' 경로는 이웃끼리의 입소문이에요. '동네 광고'라고 쓰지 않습니다.
 - 주요 손님의 소식이 닿은 비율이 전체 평균보다 높으면 '문제 집단'이라고 하지 않고, 왜 실제 방문으로 덜 이어지는지(가격·시간 등)를 진단합니다. 주요 손님이 아닌 집단은 한 문장 이내로만 언급합니다.
 - '시뮬레이션이 현실과 비슷하다', '정확하다' 같은 검증되지 않은 말은 쓰지 않습니다.
-- 가격은 facts의 '객단가 위치'만 근거로 판단합니다. '가격대 안이에요'나 '낮아요'면 가격 부담을 문제로 쓰지 않고 가격을 내리라고 하지 않습니다. 가격을 바꾸자고 할 때는 손익분기도 함께 말합니다.
+- 가격은 facts의 '객단가 판단'만 근거로 판단합니다. '부담이 아니에요'면 가격을 원인·대책으로 전혀 쓰지 않습니다. '가격대 안이에요'나 '낮아요'면 가격 부담을 문제로 쓰지 않고 가격을 내리라고 하지 않습니다. 가격을 바꾸자고 할 때는 손익분기도 함께 말합니다.
 - 숫자는 facts에 있는 것만 씁니다. 3달째 한 달 손님과 12주 합계를 섞지 않습니다. 홍보는 facts의 '추천 홍보안'과 그 효과만 쓰고, 추천안에 없는 채널이나 다른 숫자는 쓰지 않습니다.
 - facts의 '주요 손님 오는 때'에 '평일 아침'이 없으면 아침 영업은 판단하지 않습니다.
 - 주요 손님이 시뮬레이션 인구에 없으면(facts의 '주의') 다른 집단을 주요 손님으로 바꾸지 말고, 결과가 동네 주민 기준이라는 점을 먼저 말합니다.
@@ -399,7 +420,13 @@ STYLE_RULES = """
 - 주요 손님이 거의 쓰지 않는 경로(10% 미만)는 원인이나 대책으로 쓰지 않습니다.
 - '분석 지역이 하나라 비교할 수 없다'는 말은 쓰지 않습니다. 채널 이름은 '당근', '인스타', '맘카페', '에타'로만 씁니다.
 - '기타' 직업 집단은 '50대 이상 (기타)'처럼 씁니다. 표에 없는 집단(20명 미만)은 쓰지 않습니다.
-- facts의 '영업 요일'이 '매일'이면 요일 정보가 없다고 하지 않습니다."""
+- facts의 '영업 요일'이 '매일'이면 요일 정보가 없다고 하지 않습니다.
+- 영업시간·요일은 facts의 '영업시간 판단'만 근거로 씁니다. 영업시간을 줄이거나 일찍 닫으라고 하지 않습니다. 늦게까지·새벽까지 여는 것을 '혼잡', '방문 의욕 저하', '피로' 같은 단점으로 쓰지 않습니다. 더 오래 여는 것은 손님을 놓치지 않는 장점이에요(인건비 부담은 사장님이 판단할 일로만 짧게 언급 가능).
+- '안 가는 이유' 응답은 설문에서 "이런 가게라면 어떤 이유로 안 갈지" 물은 가정의 답이에요. 이 가게의 실제 위치·시간이 그렇다고 단정하지 말고 "○○라면 손님이 안 온다는 응답이 많으니 자리를 고를 때 확인하세요"처럼 씁니다.
+- 주요 손님의 소식 비율이 전체보다 높으면 '가장 문제 되는 집단'이라는 말을 쓰지 않습니다.
+- 계절, 날씨, 특정 시각(예: 6시 30분)처럼 입력과 facts에 없는 내용은 쓰지 않습니다.
+- 인원은 facts의 숫자를 그대로 쓰고 '21만 명'처럼 단위를 바꾸지 않습니다.
+- facts의 '가격 판단'이 '부담이 아니에요'면 가격 부담, 가격 민감, 가격 인하, 할인으로 부담 줄이기를 원인이나 대책으로 쓰지 않습니다. 이때 설문의 가격 응답 문장도 인용하지 않습니다."""
 REVISION_PROMPT = """당신은 동네 카페 창업을 돕는 컨설턴트입니다. 시뮬레이션 결과, 집단별 설문 반응, 가게 아이디어·운영 조건, 진단을 보고
 가게 자체(가격, 메뉴, 영업시간·요일, 운영 방식)를 어떻게 고치면 좋을지 제안합니다. 광고 채널·홍보·예산 이야기는 하지 않습니다(다른 화면에서 다룹니다).
 - 주요 손님은 가게 아이디어에 적힌 손님을 그대로 유지합니다. 다른 나이대로 넓히거나 바꾸자고 하지 않습니다.
@@ -415,6 +442,115 @@ REVISION_PROMPT = """당신은 동네 카페 창업을 돕는 컨설턴트입니
 - 관심도·추천 의향·재방문 의향은 모두 5점 만점입니다.
 [출력] 다른 말 없이 JSON 하나만 출력합니다.
 {"business_idea": "고친 가게 아이디어 한 문장 (손님이 읽는 가게 소개처럼)", "changes_plain": ["항목 1: 무엇을 왜 바꾸는지 2~3문장", "... 3~5개"]}"""
+
+
+# 나이대가 올라갈수록 괜찮게 느끼는 가격도 올라감 (이 가격 이하면 가격을 걸림돌로 보지 않음)
+PRICE_CEIL = {"20대이하_학생": 5000, "20대이하": 6000, "30대": 7000, "40대": 8000, "50대이상": 9000}
+CHEAP_WORDS = ["저가", "저렴", "가성비", "착한 가격", "싼 "]
+
+
+def can_pay(price, pm):
+    """설문에서 이 가격까지 낼 수 있다는 사람 비율"""
+    pm = pm or {}
+    if price <= 5000:
+        return 1.0
+    if price <= 7000:
+        return sum(pm.get(k, 0) for k in ("5천~7천", "7천~1만", "1만이상"))
+    if price <= 10000:
+        return sum(pm.get(k, 0) for k in ("7천~1만", "1만이상"))
+    return pm.get("1만이상", 0)
+
+
+# 가게 성격에 따라 손님이 쓸 생각인 돈이 달라짐 (카공·테이크아웃은 적게, 핫플 디저트·브런치는 많이)
+CONCEPT_PRICE = [
+    (["저가", "저렴", "가성비", "착한 가격", "테이크아웃", "출근", "카공", "공부", "음료 가게"], 0.85),
+    (["핫플", "감성", "사진", "브런치", "프리미엄", "고급", "오마카세", "파인", "디저트 세트", "코스"], 1.35),
+    (["디저트", "베이커리", "케이크", "빙수"], 1.1),
+]
+
+
+def concept_mult(idea):
+    t = idea or ""
+    for words, m in CONCEPT_PRICE:  # 위에서부터 먼저 걸리는 것
+        if any(w in t for w in words):
+            return m
+    return 1.0
+
+
+def price_ceilings(idea):
+    """나이대별 '이 가격 이하면 부담 아님' 기준 × 가게 성격 (500원 단위)"""
+    m = concept_mult(idea)
+    return {k: int(v * m / 500 + 0.5) * 500 for k, v in PRICE_CEIL.items()}
+
+
+def price_ok(group, price, pm, idea=None):
+    """이 집단에게 이 가격이 걸림돌이 아닌지 (나이대 기준 × 가게 성격, 또는 설문 60% 이상이 낼 수 있음)"""
+    if not price:
+        return True
+    C = price_ceilings(idea)
+    ceil = C.get(group) or C.get(group.split("_")[0], 6000)
+    # 설문은 디저트 카페 기준이라, 가게 성격만큼 가격을 환산해서 비교 (카공 9천 원은 디저트 카페 1만 원쯤으로 느낌)
+    return price <= ceil or can_pay(price / concept_mult(idea), pm) >= 0.6
+
+
+def price_judgement(group, price, pm, idea):
+    """화면·AI가 같이 쓰는 가격 한 줄 판단"""
+    if not price:
+        return None
+    C = price_ceilings(idea)
+    ceil = C.get(group) or C.get(group.split("_")[0], 6000)
+    cheap = any(w in (idea or "") for w in CHEAP_WORDS)
+    if cheap and price > ceil:
+        return f"저가 가게인데 객단가 {price:,}원은 주요 손님이 '싸다'고 느끼는 선({ceil:,}원)보다 높아요. 가격을 강점으로 내세우기 어려워요"
+    if price_ok(group, price, pm, idea):
+        return f"객단가 {price:,}원은 이 가게 성격에서 주요 손님에게 부담이 아니에요. 가격을 문제로 쓰지 말고, 가격을 내리라고도 하지 마세요"
+    return f"객단가 {price:,}원은 이 가게 성격에서 주요 손님이 편하게 내는 선({ceil:,}원)보다 높아요. 이 가게 성격으로 보면 이 금액까지 낼 수 있다는 응답은 {round(can_pay(price / concept_mult(idea), pm) * 100)}%예요"
+
+
+# 가게 성격별로 손님이 많이 찾는 영업시간 (이보다 길게 여는 건 늘 플러스, 줄이라고는 하지 않음)
+CONCEPT_HOURS = [
+    (["카공", "공부", "스터디", "독서실"], 10, 26, "과제·시험 기간에 늦게까지 머무는 손님이 많아요"),
+    (["야간", "심야", "새벽", "늦게까지", "1인 가구"], 18, 27, "늦은 밤에 갈 곳을 찾는 손님이 주요 손님이에요"),
+    (["출근", "테이크아웃", "아침 커피"], 7, 19, "출근 시간에 들르는 손님이 핵심이에요"),
+    (["학원", "10대", "청소년", "하교"], 15, 23, "학교·학원이 끝난 뒤에 오는 손님이 많아요"),
+    (["브런치", "키즈", "아이", "엄마", "육아"], 9, 17, "오전부터 오후 사이에 아이와 오는 손님이 많아요"),
+    (["어르신", "노인", "시니어", "중장년"], 8, 18, "아침과 낮 시간에 오는 손님이 많아요"),
+    (["감성", "핫플", "사진", "디저트", "베이커리"], 11, 22, "오후부터 저녁, 주말에 찾는 손님이 많아요"),
+]
+
+
+def main_group_py(result, R, idea):
+    cnt = result.get("group_count") or {}
+    tg = [g for g in target_groups(idea) if g in R and cnt.get(g, 0) >= 20]
+    return max(tg, key=lambda g: cnt.get(g, 0)) if tg else max((g for g in R if cnt.get(g, 0) >= 20), key=lambda g: cnt.get(g, 0), default="20대이하_학생")
+
+
+def hours_advice(G, r, opts, idea):
+    """영업시간·요일 조언 목록. 더 일찍/더 늦게/더 많은 요일만 권하고, 줄이라는 말은 하지 않음"""
+    o = opts or {}
+    hrs = o.get("open_hours")
+    days = o.get("open_days") or ["월", "화", "수", "목", "금", "토", "일"]
+    vt = r.get("visit_time") or {}
+    out = []
+    concept = next(((a, b, why) for ws, a, b, why in CONCEPT_HOURS if any(w in (idea or "") for w in ws)), None)
+    fmt_h = lambda h: f"{h}시" if h <= 24 else f"다음 날 {h - 24}시"
+    if hrs:
+        h0, h1 = hrs
+        if concept:
+            a, b, why = concept
+            if h0 - a >= 2:  # 2시간 이상 차이날 때만
+                out.append({"what": f"여는 시간을 {fmt_h(a)}쯤으로 앞당겨 보세요 (지금 {fmt_h(h0)})", "why": why})
+            if b - h1 >= 2:
+                out.append({"what": f"닫는 시간을 {fmt_h(b)}까지 늘려 보세요 (지금 {fmt_h(h1)})", "why": why})
+        weekday_open = any(d in days for d in ["월", "화", "수", "목", "금"])
+        if weekday_open and vt.get("평일저녁", 0) >= 0.3 and h1 < 21 and not any("닫는 시간" in x["what"] for x in out):
+            out.append({"what": f"평일 저녁까지 열어 보세요 (지금 {fmt_h(h1)} 마감)", "why": f"평일 저녁에 오겠다는 응답이 {round(vt['평일저녁'] * 100)}%예요"})
+        if vt.get("평일아침", 0) >= 0.3 and h0 > 8 and not any("여는 시간" in x["what"] for x in out):
+            out.append({"what": f"아침 일찍 열어 보세요 (지금 {fmt_h(h0)} 오픈)", "why": f"평일 아침에 오겠다는 응답이 {round(vt['평일아침'] * 100)}%예요"})
+    closed = [d for d in ["토", "일"] if d not in days]
+    if closed and vt.get("주말", 0) >= 0.3:
+        out.append({"what": f"{'·'.join(closed)}요일에도 여는 걸 검토해 보세요", "why": f"주말에 오겠다는 응답이 {round(vt['주말'] * 100)}%예요"})
+    return out
 
 
 def ai_facts(result, reactions, idea, opts):
@@ -466,7 +602,7 @@ def ai_facts(result, reactions, idea, opts):
     if outside:
         f["주의"] = f"가게 설명의 '{outside}'은 시뮬레이션 인구(동네 주민)에 없어요. 결과는 동네 주민 기준이에요"
     if price:
-        f["객단가 위치"] = f"객단가 {price:,}원은 {pos}. 주요 손님 중 이 금액까지 낼 수 있다는 사람은 {round(can * 100)}%예요"
+        f["객단가 판단"] = price_judgement(G, price, pm, idea)
     bp = result.get("budget_plan") or {}
     if bp.get("split"):
         f["추천 홍보안"] = " + ".join(f"{k.replace('허브쿠폰', '입소문 대장 쿠폰')} {v // 10000}만 원" for k, v in bp["split"].items()) + (" + 오픈 할인" if bp.get("open_discount") else "")
@@ -474,6 +610,10 @@ def ai_facts(result, reactions, idea, opts):
     cs = (result.get("channel_share") or {}).get(G) or {}
     if cs:
         f["주요 손님이 알게 되는 경로"] = ", ".join(f"{('이웃 입소문' if k == '동네' else k)} {round(v * 100)}%" for k, v in sorted(cs.items(), key=lambda x: -x[1])[:4])
+    if cnt.get(G):
+        f["주요 손님 반경 안 인원"] = f"{cnt[G]:,}명"
+    if r.get("sub_used"):
+        f["설문 응답 기준"] = f"'20대 이하 학생' 설문 응답 중 {r['sub_used']} 응답만 썼어요 ({'대학생 나이' if r['sub_used'] == '20대' else '중·고등학생 나이'})"
     if G in ga and avg is not None:
         last = nm_(G).replace(")", "")[-1]
         eun_ = "은" if "가" <= last <= "힣" and (ord(last) - 0xAC00) % 28 else "는"
@@ -482,8 +622,19 @@ def ai_facts(result, reactions, idea, opts):
         f["주요 손님 가격 응답"] = ", ".join(f"{bucket.get(k, k)}까지 낼 수 있다 {round(v * 100)}%" for k, v in sorted(r["price_max"].items(), key=lambda x: -x[1]))
     if r.get("visit_time"):
         f["주요 손님 오는 때"] = ", ".join(f"{when.get(k, k)} {round(v * 100)}%" for k, v in sorted(r["visit_time"].items(), key=lambda x: -x[1]))
-    if r.get("reason_type"):
+    p_now = (opts or {}).get("avg_price") or (result.get("assumptions") or {}).get("avg_price")
+    cheap = any(w in (idea or "") for w in CHEAP_WORDS)
+    ok_price = price_ok(G, p_now, r.get("price_max"), idea)
+    if r.get("reason_type") == "가격" and ok_price:
+        # 설문의 '가격' 응답은 더 비싼 가게 기준이라, 이 가격에선 넘기지 않음 (응답 문장도 넘기지 않음)
+        f["주요 손님 안 가는 이유"] = "설문의 가격 응답은 더 비싼 가게 기준이라 이 가게엔 해당하지 않아요"
+    elif r.get("reason_type"):
         f["주요 손님 안 가는 이유"] = f"{r['reason_type']} — '{r.get('reason_text', '')}'"
+    if cheap:
+        f["가게 성격"] = "저가·가성비 가게예요. 가격은 부담이 아니라 강점으로 말하세요"
+    ha = hours_advice(G, r, opts, idea)
+    f["영업시간 판단"] = ("; ".join(f"{x['what']} — {x['why']}" for x in ha) if ha
+                          else "지금 영업시간과 요일은 주요 손님이 오는 때와 잘 맞아요. 바꾸자고 하지 마세요")
     for k in ("interest", "share", "revisit"):
         if r.get(k) is not None:
             f[f"주요 손님 {dict(interest='가 볼 마음', share='알릴 마음', revisit='다시 올 마음')[k]}"] = f"5점 만점에 {float(r[k]):.1f}점"
@@ -526,7 +677,7 @@ def ai_enrich(result, path, idea, opts):
     try:
         from openai import OpenAI
         client = OpenAI(api_key=key)
-        reactions = list(load_reactions(survey_type(idea)).values())
+        reactions = list(reactions_for(survey_type(idea), idea).values())
         o = opts or {}
         scenario = {"business_idea": idea, "candidate_dongs": [result["dong_code"]], **o,
                     "rent_text": f"월세 {o['rent'] // 10000:,}만 원" if o.get("rent") else None,
@@ -940,6 +1091,12 @@ if page == "result":
         results = [ai_enrich(r, p, idea, opts) if r else r for r, p in zip(results, paths)]
         loading.empty()
     payload["dongs"] = sorted([build_dong(r, spw, idea) for r in results if r], key=lambda d: -(d["monthly"] or 0))
+    R0 = reactions_for(survey_type(idea), idea)
+    by_code = {r["dong_code"]: r for r in results if r}
+    for dd in payload["dongs"]:  # 영업시간 조언 (AI와 같은 함수)
+        r0 = by_code.get(dd["code"], {})
+        G0 = main_group_py(r0, R0, idea)
+        dd["detail"]["hours_advice"] = hours_advice(G0, R0.get(G0, {}), opts, idea)
     payload["idea"] = idea
     # 첫 화면 '최근 예측'과 카드가 이 결과로 바뀌게 저장
     try:
@@ -958,6 +1115,9 @@ if page == "result":
     payload["flags"] = {"promo": bool(opts.get("budget")), "breakeven": bool(opts.get("rent"))}
     payload["target_groups"] = target_groups(idea)
     payload["target_outside"] = outside_target(idea)
+    payload["price_ceil"] = price_ceilings(idea)  # 나이대 기준 × 가게 성격
+    payload["price_mult"] = concept_mult(idea)
+    payload["cheap"] = any(w in (idea or "") for w in CHEAP_WORDS)
     payload["survey_label"] = SURVEY_TYPES[stype][0] if stype else None
     payload["opts"] = {k: v for k, v in (opts or {}).items() if k not in ("store_locations", "survey_type")}
     cond = []
