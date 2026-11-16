@@ -1,11 +1,7 @@
-streamlit
+﻿streamlit
 pandas
 plotly
 pydeck
 streamlit-folium
 folium
-
-streamlit-folium
-folium
-
 openai
