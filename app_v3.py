@@ -669,6 +669,30 @@ def hours_advice(G, r, opts, idea):
     return out
 
 
+def extended_opts(opts, idea, dongs):
+    """조언대로 영업시간·요일을 넓힌 조건 (넓힐 게 없으면 None). 홍보는 빼고 계산"""
+    o = dict(opts or {})
+    adv = [h for dd in dongs for h in (dd["detail"].get("hours_advice") or [])]
+    if not adv or not o.get("open_hours"):
+        return None
+    h0, h1 = o["open_hours"]
+    concept = next(((a, b) for ws, a, b, _ in CONCEPT_HOURS if any(w in (idea or "") for w in ws)), None)
+    n0, n1 = h0, h1
+    if concept:
+        n0, n1 = min(h0, concept[0]) if h0 - concept[0] >= 2 else h0, max(h1, concept[1]) if concept[1] - h1 >= 2 else h1
+    if any("평일 저녁" in h["what"] for h in adv):
+        n1 = max(n1, 21)
+    if any("아침 일찍" in h["what"] for h in adv):
+        n0 = min(n0, 7)
+    days = o.get("open_days")
+    if days and any("요일에도" in h["what"] for h in adv):
+        days = sorted(set(days) | {"토", "일"}, key="월화수목금토일".index)
+    if [n0, n1] == [h0, h1] and days == o.get("open_days"):
+        return None
+    o.update({"open_hours": [n0, n1], "open_days": days if days and len(days) < 7 else None, "budget": None})
+    return o
+
+
 def ai_facts(result, reactions, idea, opts):
     """AI가 숫자를 잘못 계산하지 않게, 화면과 같은 숫자를 쉬운 문장으로 미리 만들어 넘김"""
     heard = set()
@@ -1261,6 +1285,21 @@ if page == "result":
         dd["detail"]["hours_advice"] = hours_advice(G0, R0.get(G0, {}), opts, idea)
         dd["detail"]["location"] = location_judgement(r0, G0, idea) if r0 else None
         dd["detail"]["hub_community"] = hub_community(r0, R0, G0) if r0 else None
+    # 영업시간·요일 조언이 있으면, 그대로 바꿨을 때 손님이 얼마나 느는지 엔진으로 한 번 더 계산 (홍보 없이, 같은 조건은 저장돼 다시 안 돌림)
+    alt = extended_opts(opts, idea, payload["dongs"])
+    if alt:
+        loading = st.empty()
+        loading.markdown(loading_html(len(codes), "영업시간을 늘렸을 때도 계산하는 중이에요", "동네당 30초쯤 걸려요"), unsafe_allow_html=True)
+        alt_results, alt_err = run_engine(codes, alt, idea)
+        loading.empty()
+        if not alt_err:
+            alt_by = {r["dong_code"]: r for r in alt_results if r}
+            for dd in payload["dongs"]:
+                a0 = alt_by.get(dd["code"])
+                if a0 and dd.get("monthly") is not None:
+                    dd["detail"]["hours_gain"] = {"monthly": (a0.get("monthly_customers") or 0) - (dd["monthly"] or 0),
+                                                  "breakeven": a0.get("breakeven_week"), "hours": alt.get("open_hours"),
+                                                  "days": alt.get("open_days")}
     payload["idea"] = idea
     # 첫 화면 '최근 예측'과 카드가 이 결과로 바뀌게 저장
     try:
